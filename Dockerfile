@@ -30,7 +30,7 @@ ENV JVM_OPTS="\
 -Duser.country=CN \
 -Duser.timezone=GMT+8 \
 -Dfile.encoding=UTF-8 \
--XX:MaxGCPauseMillis=100 \
+-XX:MaxGCPauseMillis=200 \
 -XX:+ParallelRefProcEnabled \
 -XX:ParallelGCThreads=1 \
 -XX:ConcGCThreads=1 \
