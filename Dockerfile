@@ -18,8 +18,8 @@ RUN echo "eula=true" > eula.txt
 # JVM针对2C6G机器
 ENV JVM_OPTS="\
 -server \
--Xms1G \
--Xmx6G \
+-Xms512M \
+-Xmx5G \
 -Xshare:auto \
 -XX:+UseTLAB \
 -XX:+UseG1GC \
@@ -29,34 +29,31 @@ ENV JVM_OPTS="\
 -Dfile.encoding=UTF-8 \
 -XX:MaxGCPauseMillis=100 \
 -XX:+ParallelRefProcEnabled \
--XX:ParallelGCThreads=2 \
--XX:ConcGCThreads=2 \
+-XX:ParallelGCThreads=1 \
+-XX:ConcGCThreads=1 \
 -XX:+UnlockExperimentalVMOptions \
 -XX:+AlwaysPreTouch \
 -XX:+UseCompressedOops \
--XX:G1HeapRegionSize=8M \
--XX:G1ReservePercent=20 \
+-XX:G1HeapRegionSize=4M \
+-XX:G1ReservePercent=15 \
 -XX:G1MixedGCLiveThresholdPercent=90 \
 -XX:InitiatingHeapOccupancyPercent=15 \
 -XX:G1NewSizePercent=20 \
 -XX:G1MaxNewSizePercent=60 \
--XX:SurvivorRatio=32 \
--XX:MaxTenuringThreshold=1 \
--XX:G1MixedGCCountTarget=4 \
+-XX:SurvivorRatio=8 \
+-XX:MaxTenuringThreshold=2 \
+-XX:G1MixedGCCountTarget=2 \
 -Djava.awt.headless=true \
 -XX:CICompilerCount=2 \
 -XX:+TieredCompilation \
 -XX:TieredStopAtLevel=4 \
--XX:MetaspaceSize=128M \
--XX:MaxMetaspaceSize=256M \
+-XX:MetaspaceSize=64M \
+-XX:MaxMetaspaceSize=128M \
 -XX:CompileThreshold=15000 \
--XX:InitialCodeCacheSize=32M \
--XX:ReservedCodeCacheSize=128M \
+-XX:InitialCodeCacheSize=16M \
+-XX:ReservedCodeCacheSize=64M \
 -Djava.net.preferIPv4Stack=true \
--Djdk.virtualThreadEnable=true \
--Djdk.attach.allowAttachSelf \
--XX:+UseStringDeduplication \
--XX:+OptimizeStringConcat" \
+-XX:+UseStringDeduplication" \
     TZ=Asia/Shanghai
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
