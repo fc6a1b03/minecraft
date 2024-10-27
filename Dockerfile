@@ -50,8 +50,8 @@ ENV JVM_OPTS="\
 -XX:CICompilerCount=2 \
 -XX:+TieredCompilation \
 -XX:TieredStopAtLevel=4 \
--XX:MetaspaceSize=64M \
--XX:MaxMetaspaceSize=128M \
+-XX:MetaspaceSize=256M \
+-XX:MaxMetaspaceSize=512M \
 -XX:CompileThreshold=15000 \
 -XX:InitialCodeCacheSize=16M \
 -XX:ReservedCodeCacheSize=64M \
