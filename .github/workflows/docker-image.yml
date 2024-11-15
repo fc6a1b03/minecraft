@@ -131,7 +131,7 @@ jobs:
     # Step 11: 为多种架构构建和推送Docker镜像
     - name: Build and push Docker image
       if: env.BUILD_NEEDED == 'true'
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true
