@@ -25,24 +25,27 @@ jobs:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
 
+    # Step 3: 设置仓库
+    - name: Set registry environment variable
+      run: echo "REGISTRY=ghcr.io" >> $GITHUB_ENV
 
-    # Step 3: 登录Docker Hub
+    # Step 4: 登录Docker Hub
     # - name: Login to Docker Hub
     #   uses: docker/login-action@v3
     #   with:
     #     username: ${{ secrets.DOCKER_USERNAME }}
     #     password: ${{ secrets.DOCKER_PASSWORD }}
 
-    # Step 3: 登录本仓库
+    # Step 4: 登录本仓库
     - name: Log in to the Container registry
       uses: docker/login-action@v3
       id: docker-login
       with:
-        registry: ghcr.io
+        registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # Step 4: 获取 Forge 相关版本信息
+    # Step 5: 获取 Forge 相关版本信息
     - name: Fetch Forge version info
       run: |
         PROMOTION_FILE=https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
@@ -68,7 +71,7 @@ jobs:
         echo "SERVER_VERSION=$SERVER_VERSION" >> $GITHUB_ENV
         echo "FORGE_VERSION=$FORGE_VERSION" >> $GITHUB_ENV
 
-    # Step 5: 检查版本是否更新
+    # Step 6: 检查版本是否更新
     - name: Check if version is updated
       id: check_version
       run: |
@@ -96,14 +99,14 @@ jobs:
           echo "BUILD_NEEDED=true" >> $GITHUB_ENV
         fi
         
-    # Step 6: 下载 Forge Server
+    # Step 7: 下载 Forge Server
     - name: Download Fabric server and API
       if: env.BUILD_NEEDED == 'true'
       run: |
         # 下载 Forge Server
         curl -fSL -o forge-installer.jar "https://maven.minecraftforge.net/net/minecraftforge/forge/${{ env.SERVER_VERSION }}-${{ env.FORGE_VERSION }}/forge-${{ env.SERVER_VERSION }}-${{ env.FORGE_VERSION }}-installer.jar"
 
-    # Step 7: 生成随机RCON密码
+    # Step 8: 生成随机RCON密码
     - name: Generate random RCON password
       if: env.BUILD_NEEDED == 'true'
       id: generate_password
@@ -111,7 +114,7 @@ jobs:
         RCON_PASSWORD=$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 30)
         echo "RCON_PASSWORD=$RCON_PASSWORD" >> $GITHUB_ENV
 
-    # Step 8: 将随机生成的密码写入 server.properties
+    # Step 9: 将随机生成的密码写入 server.properties
     - name: Update server.properties with RCON password
       if: env.BUILD_NEEDED == 'true'
       run: |
@@ -123,9 +126,9 @@ jobs:
       if: env.BUILD_NEEDED == 'true'
       run: |
         if [ -n "${{ github.event.inputs.SERVER_VERSION }}" ]; then
-          echo "TAGS=${{ steps.docker-login.outputs.registry }}/${{ github.repository_owner }}/minecraft-server-forge:${{ github.event.inputs.SERVER_VERSION }}" >> $GITHUB_ENV
+          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-forge:${{ github.event.inputs.SERVER_VERSION }}" >> $GITHUB_ENV
         else
-          echo "TAGS=${{ steps.docker-login.outputs.registry }}/${{ github.repository_owner }}/minecraft-server-forge:latest,${{ steps.docker-login.outputs.registry }}/${{ github.repository_owner }}/minecraft-server-forge:${{ env.SERVER_VERSION }}" >> $GITHUB_ENV
+          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-forge:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-forge:${{ env.SERVER_VERSION }}" >> $GITHUB_ENV
         fi
     
     # Step 11: 为多种架构构建和推送Docker镜像
