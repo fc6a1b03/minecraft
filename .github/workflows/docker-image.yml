@@ -29,7 +29,7 @@ jobs:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
 
-    # 
+    # Step 3: 设置仓库
     - name: Set registry environment variable
       run: echo "REGISTRY=ghcr.io" >> $GITHUB_ENV
     
