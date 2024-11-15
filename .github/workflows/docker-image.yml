@@ -14,6 +14,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }} 
 
     # Step 1: 设置Docker Buildx
     - name: Set up Docker Buildx
