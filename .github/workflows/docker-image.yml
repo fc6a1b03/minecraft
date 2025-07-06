@@ -113,7 +113,7 @@ jobs:
           echo "::error::No versions found for MC ${{ env.LATEST_VERSION }} with loader purpur"
           exit 1
         fi
-        curl -sfL "$(echo "$response" | jq -r '.[0].files[0].url')"
+        curl -sfL -o $(echo "$response" | jq -r '.[0].files[0].filename') "$(echo "$response" | jq -r '.[0].files[0].url')"
 
     # Step 9: 生成随机RCON密码
     - name: Generate random RCON password
