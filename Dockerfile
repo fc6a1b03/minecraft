@@ -13,7 +13,6 @@ Expose 25565
 COPY --from=builder server .
 RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
-COPY PurpurExtras*.jar /plugins/
 RUN echo "eula=true" > eula.txt
 
 # JVM针对2C6G机器
