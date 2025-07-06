@@ -13,7 +13,7 @@ Expose 25565
 COPY --from=builder server .
 RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
-COPY PurpurExtras*.jar /plugins/
+COPY PurpurExtras*.jar /public/
 RUN echo "eula=true" > eula.txt
 
 # JVM针对2C6G机器
@@ -60,4 +60,4 @@ ENV JVM_OPTS="\
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
-ENTRYPOINT ["sh", "-c", "java -jar ${JVM_OPTS} server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
+ENTRYPOINT ["sh", "-c", "cp -r /public/* plugins/ && java -jar ${JVM_OPTS} server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
