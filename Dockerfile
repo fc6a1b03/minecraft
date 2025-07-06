@@ -1,11 +1,19 @@
-FROM eclipse-temurin:21-jre
-
+FROM eclipse-temurin:21-jre as builder
 WORKDIR server
 
+COPY purpur-server.jar purpur-server.jar
+RUN mkdir -p /temp/cache && java -jar purpur-server.jar --nogui --universe /temp/cache/
+
+################################
+
+FROM eclipse-temurin:21-jre
+WORKDIR server
 Expose 25565
 
-COPY server.jar .
+COPY --from=builder server .
+RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
+COPY PurpurExtras*.jar /plugins/
 RUN echo "eula=true" > eula.txt
 
 # JVM针对2C6G机器
