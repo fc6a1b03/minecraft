@@ -57,10 +57,10 @@ jobs:
       run: |
         # 确定Minecraft版本
         if [ -n "${{ github.event.inputs.LATEST_VERSION }}" ]; then
-          MC_VERSION="${{ github.event.inputs.LATEST_VERSION }}"
+          LATEST_VERSION="${{ github.event.inputs.LATEST_VERSION }}"
         else
           # 获取最新的Minecraft版本（通过metadata.current字段）
-          MC_VERSION=$(curl -s $PURPUR_API_BASE | jq -r '.metadata.current')
+          LATEST_VERSION=$(curl -s $PURPUR_API_BASE | jq -r '.metadata.current')
         fi
         # 生成下载URL
         SERVER_URL="$PURPUR_API_BASE/$MC_VERSION/latest/download"
@@ -101,7 +101,25 @@ jobs:
       run: |
         curl -fSL -o server.jar "$SERVER_URL"
 
-    # Step 8: 生成随机RCON密码
+    # Step 8: 下载 PurpurExtras
+    - name: Fetch and download latest PurpurExtras
+      id: fetch_and_download
+      env:
+        MODRINTH_API: "https://api.modrinth.com/v2"
+        MINECRAFT_VERSION: "${{ env.LATEST_VERSION }}" 
+      run: |
+        response=$(curl -sfLS -H "User-Agent: GitHub-Actions/1.0" -H "Authorization: ${{ secrets.ACTIONS_TOKENS }}" \
+          "$MODRINTH_API/project/purpurextras/version?game_versions=[\"$MINECRAFT_VERSION\"]&loaders=[\"purpur\"]")
+        if [ -z "$response" ] || [ "$response" = "[]" ]; then
+          echo "::error::No versions found for MC $MINECRAFT_VERSION with loader purpur"
+          exit 1
+        fi
+        version_id=$(echo "$response" | jq -r '.[0].id')
+        file_hash=$(echo "$response" | jq -r '.[0].files[0].hashes.sha1')
+        file_name=$(echo "$response" | jq -r '.[0].files[0].filename')
+        curl -sfL -o $file_name -H "User-Agent: GitHub-Actions/1.0" "$MODRINTH_API/version_file/$file_hash"
+
+    # Step 9: 生成随机RCON密码
     - name: Generate random RCON password
       if: env.BUILD_NEEDED == 'true'
       id: generate_password
@@ -109,13 +127,13 @@ jobs:
         RCON_PASSWORD=$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 30)
         echo "RCON_PASSWORD=$RCON_PASSWORD" >> $GITHUB_ENV
 
-    # Step 9: 将随机生成的密码写入 server.properties
+    # Step 10: 将随机生成的密码写入 server.properties
     - name: Update server.properties with RCON password
       if: env.BUILD_NEEDED == 'true'
       run: |
         sed -i '/^rcon.password=/c\rcon.password=${{ env.RCON_PASSWORD }}' server.properties
 
-    # Step 10: 准备 Docker 镜像标签
+    # Step 11: 准备 Docker 镜像标签
     - name: Prepare Docker tags
       id: prepare_tags
       if: env.BUILD_NEEDED == 'true'
@@ -126,7 +144,7 @@ jobs:
           echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:${{ env.LATEST_VERSION }}" >> $GITHUB_ENV
         fi
     
-    # Step 11: 为多种架构构建和推送Docker镜像
+    # Step 12: 为多种架构构建和推送Docker镜像
     - name: Build and push Docker image
       if: env.BUILD_NEEDED == 'true'
       uses: docker/build-push-action@v6
@@ -136,7 +154,7 @@ jobs:
         tags: ${{ env.TAGS }}
         platforms: linux/amd64,linux/arm64
 
-    # Step 12: 更新记录的最后构建版本
+    # Step 13: 更新记录的最后构建版本
     - name: Update last built version
       if: env.BUILD_NEEDED == 'true' && github.event.inputs.LATEST_VERSION == ''
       run: |
