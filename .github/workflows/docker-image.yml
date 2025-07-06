@@ -49,24 +49,23 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # Step 5: 获取最新的Minecraft版本信息
-    - name: Fetch Minecraft version info
+    # Step 5: 获取最新的Purpur版本信息
+    - name: Fetch Purpur version info
       id: version_info
+      env:
+        PURPUR_API_BASE: "https://api.purpurmc.org/v2/purpur"
       run: |
-        # Minecraft版本信息地址
-        VERSION_MANIFEST_URL="https://launchermeta.mojang.com/mc/game/version_manifest.json"
+        # 确定Minecraft版本
         if [ -n "${{ github.event.inputs.LATEST_VERSION }}" ]; then
-          # 使用手动指定的版本
-          LATEST_VERSION=${{ github.event.inputs.LATEST_VERSION }}
-          VERSION_URL=$(curl -s $VERSION_MANIFEST_URL | jq -r --arg LATEST_VERSION "$LATEST_VERSION" '.versions[] | select(.id==$LATEST_VERSION and .type=="release") | .url')
-          echo "VERSION_URL=$VERSION_URL" >> $GITHUB_ENV
+          MC_VERSION="${{ github.event.inputs.LATEST_VERSION }}"
         else
-          # 自动获取最新版本信息
-          LATEST_VERSION=$(curl -s $VERSION_MANIFEST_URL | jq -r '.versions[] | select(.type=="release") | .id' | head -n 1)
-          VERSION_URL=$(curl -s $VERSION_MANIFEST_URL | jq -r --arg LATEST_VERSION "$LATEST_VERSION" '.versions[] | select(.id==$LATEST_VERSION and .type=="release") | .url')
-          echo "VERSION_URL=$VERSION_URL" >> $GITHUB_ENV
+          # 获取最新的Minecraft版本（通过metadata.current字段）
+          MC_VERSION=$(curl -s $PURPUR_API_BASE | jq -r '.metadata.current')
         fi
-        echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
+        # 生成下载URL
+        SERVER_URL="$PURPUR_API_BASE/$MC_VERSION/latest/download"
+        # 输出到环境变量
+        echo "SERVER_URL=$SERVER_URL" >> $GITHUB_ENV
 
     # Step 6: 检查版本是否更新
     - name: Check if version is updated
@@ -96,21 +95,13 @@ jobs:
           echo "BUILD_NEEDED=true" >> $GITHUB_ENV
         fi
 
-    # Step 7: 获取server.jar下载URL
-    - name: Fetch server.jar download URL
-      id: server_download_url
-      if: env.BUILD_NEEDED == 'true'
-      run: |
-        SERVER_URL=$(curl -s $VERSION_URL | jq -r '.downloads.server.url')
-        echo "SERVER_URL=$SERVER_URL" >> $GITHUB_ENV
-
-    # Step 8: 下载 server.jar
+    # Step 7: 下载 server.jar
     - name: Download server.jar
       if: env.BUILD_NEEDED == 'true'
       run: |
         curl -fSL -o server.jar "$SERVER_URL"
 
-    # Step 9: 生成随机RCON密码
+    # Step 8: 生成随机RCON密码
     - name: Generate random RCON password
       if: env.BUILD_NEEDED == 'true'
       id: generate_password
@@ -118,13 +109,13 @@ jobs:
         RCON_PASSWORD=$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 30)
         echo "RCON_PASSWORD=$RCON_PASSWORD" >> $GITHUB_ENV
 
-    # Step 10: 将随机生成的密码写入 server.properties
+    # Step 9: 将随机生成的密码写入 server.properties
     - name: Update server.properties with RCON password
       if: env.BUILD_NEEDED == 'true'
       run: |
         sed -i '/^rcon.password=/c\rcon.password=${{ env.RCON_PASSWORD }}' server.properties
 
-    # Step 11: 准备 Docker 镜像标签
+    # Step 10: 准备 Docker 镜像标签
     - name: Prepare Docker tags
       id: prepare_tags
       if: env.BUILD_NEEDED == 'true'
@@ -135,7 +126,7 @@ jobs:
           echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server:${{ env.LATEST_VERSION }}" >> $GITHUB_ENV
         fi
     
-    # Step 12: 为多种架构构建和推送Docker镜像
+    # Step 11: 为多种架构构建和推送Docker镜像
     - name: Build and push Docker image
       if: env.BUILD_NEEDED == 'true'
       uses: docker/build-push-action@v6
@@ -145,7 +136,7 @@ jobs:
         tags: ${{ env.TAGS }}
         platforms: linux/amd64,linux/arm64
 
-    # Step 13: 更新记录的最后构建版本
+    # Step 12: 更新记录的最后构建版本
     - name: Update last built version
       if: env.BUILD_NEEDED == 'true' && github.event.inputs.LATEST_VERSION == ''
       run: |
