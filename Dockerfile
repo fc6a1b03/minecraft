@@ -6,7 +6,7 @@ RUN mkdir -p /temp/cache && java -jar purpur-server.jar --nogui --universe /temp
 
 ################################
 
-FROM eclipse-temurin:21
+FROM eclipse-temurin:21-jar
 WORKDIR server
 Expose 25565
 
