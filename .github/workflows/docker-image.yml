@@ -100,7 +100,7 @@ jobs:
     - name: Download server.jar
       if: env.BUILD_NEEDED == 'true'
       run: |
-        curl -fSL -o server.jar "$SERVER_URL"
+        curl -fSL -o purpur-server.jar "$SERVER_URL"
 
     # Step 8: 下载 PurpurExtras
     - name: Fetch and download latest PurpurExtras
