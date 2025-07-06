@@ -35,7 +35,7 @@
     2. 通过`docker exec -it minecraft-server cat /server/server.properties`查询密码
 
 ### 必要插件与模组
-> 此分支为纯净版本，模组支持可查阅`main-fabric`、`main-forge`分支
+> 此分支为纯净版本，模组支持可查阅`main-fabric`、`main-forge`分支，插件支持可查阅`main-purpur`
 
 ### 补充信息
 - [客户端](https://ci.huangyuhui.net/job/HMCL/)
