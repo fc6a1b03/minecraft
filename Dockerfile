@@ -60,4 +60,4 @@ ENV JVM_OPTS="\
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
-ENTRYPOINT ["sh", "-c", "cp -r /public/* plugins/ && java -jar ${JVM_OPTS} server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
+ENTRYPOINT ["sh", "-c", "cp -r /public/* plugins/ && java -jar ${JVM_OPTS} purpur-server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
