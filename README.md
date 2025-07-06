@@ -28,4 +28,4 @@
 - RCON远程访问密码，每次构建镜像都会生成一个随机的 30 位大小写字母和数字组合的密码，基于`tr -dc 'A-Za-z0-9'`
   - 可选择
     1. 通过自有配置覆盖来修改密码
-    2. 通过`docker exec -it minecraft-server cat /server/server.properties`查询密码
+    2. 通过`docker exec -it minecraft-server-forge cat /server/server.properties`查询密码
