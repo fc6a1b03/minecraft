@@ -1,8 +1,7 @@
 这个分支将会使用[Quilt](https://quiltmc.org)作为模组插件
 
 ### 获取`Quilt`文件
-> 
-... 待续
+> 目前`Quilt`还未稳定... 待续
    
 ### 制作Dockerfile
 - [Dockerfile](Dockerfile)
