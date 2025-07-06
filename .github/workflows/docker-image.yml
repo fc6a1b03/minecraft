@@ -108,16 +108,12 @@ jobs:
       env:
         MODRINTH_API: "https://api.modrinth.com/v2"
       run: |
-        response=$(curl -sfLS -H "User-Agent: GitHub-Actions/1.0" -H "Authorization: ${{ secrets.ACTIONS_TOKENS }}" \
-          "$MODRINTH_API/project/purpurextras/version?game_versions=${{ env.LATEST_VERSION }}&loaders=purpur")
+        response=$(curl -sfLS "$MODRINTH_API/project/purpurextras/version?game_versions=${{ env.LATEST_VERSION }}&loaders=purpur")
         if [ -z "$response" ] || [ "$response" = "[]" ]; then
           echo "::error::No versions found for MC ${{ env.LATEST_VERSION }} with loader purpur"
           exit 1
         fi
-        version_id=$(echo "$response" | jq -r '.[0].id')
-        file_hash=$(echo "$response" | jq -r '.[0].files[0].hashes.sha1')
-        file_name=$(echo "$response" | jq -r '.[0].files[0].filename')
-        curl -sfL -o $file_name -H "User-Agent: GitHub-Actions/1.0" "$MODRINTH_API/version_file/$file_hash"
+        curl -sfL "$(echo "$response" | jq -r '.[0].files[0].url')"
 
     # Step 9: 生成随机RCON密码
     - name: Generate random RCON password
