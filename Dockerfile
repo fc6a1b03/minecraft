@@ -6,7 +6,7 @@ RUN mkdir -p /temp/cache && java -jar fabric-server.jar --nogui --universe /temp
 
 ################################
 
-FROM eclipse-temurin:21
+FROM eclipse-temurin:21-jar
 WORKDIR server
 
 COPY --from=builder server .
