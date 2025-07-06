@@ -1,7 +1,6 @@
 FROM eclipse-temurin:21-jar
 
 WORKDIR server
-
 Expose 25565
 
 COPY server.jar .
@@ -48,7 +47,6 @@ ENV JVM_OPTS="\
 -Djava.net.preferIPv4Stack=true \
 -XX:+UseStringDeduplication" \
     TZ=Asia/Shanghai
-
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
