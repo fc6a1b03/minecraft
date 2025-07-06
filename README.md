@@ -17,6 +17,9 @@
 ### 使用说明
 - 世界资源默认读取`/data/`路径，可选择 -v /data/:/data/
 - 配置文件`server.properties`放置与server.jar所在的目录中，可选择 -v /server/server.properties:/server/server.properties
+- 插件文件默认读取`/server/plugins/`路径，可选择 -v /server/plugins:/server/plugins
+  - `PurpurExtras.jar`基础插件会自动添加到plugins中，配置挂载也不会影响。
+- 模组配置文件默认读取`/server/config/`，可选择 -v /server/config:/server/config
 - 端口都按官方默认
   - server-port=25565，可选择 -p 25565:25565
   - rcon.port=25575，可选择 -p 25575:25575
