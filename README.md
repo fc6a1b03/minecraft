@@ -1,3 +1,5 @@
+这个分支将会使用[Purpur](https://purpurmc.org)作为模组插件
+
 ### 获取`Purpur`文件
 1. 获取`Purpur`下载地址
     - 地址为：`https://api.purpurmc.org/v2/purpur/{minecraft.version}/{purpur.version}/download`
