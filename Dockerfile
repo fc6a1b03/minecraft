@@ -8,6 +8,7 @@ RUN mkdir -p /temp/cache && java -jar fabric-server.jar --nogui --universe /temp
 
 FROM eclipse-temurin:21-jar
 WORKDIR server
+Expose 25565
 
 COPY --from=builder server .
 RUN rm -rf server.properties eula.txt logs/*
@@ -58,5 +59,4 @@ ENV JVM_OPTS="\
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
-Expose 25565
 ENTRYPOINT ["sh", "-c", "cp -r /public/* mods/ && java -jar ${JVM_OPTS} fabric-server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
