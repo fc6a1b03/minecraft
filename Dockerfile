@@ -11,11 +11,11 @@ RUN mkdir -p /temp/cache && java -jar forge-server.jar --nogui --universe /temp/
 
 FROM eclipse-temurin:21-jar
 WORKDIR server
+Expose 25565
 
 COPY --from=builder server .
 RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
-# COPY fabric-api.jar /public/
 RUN echo "eula=true" > eula.txt
 
 # JVM针对2C6G机器
@@ -61,6 +61,4 @@ ENV JVM_OPTS="\
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
-Expose 25565
-# cp -r /public/* mods/ && 
 ENTRYPOINT ["sh", "-c", "java -jar ${JVM_OPTS} forge-server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
