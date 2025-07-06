@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jre as builder
+FROM eclipse-temurin:21 as builder
 WORKDIR server
 
 COPY forge-installer.jar forge-installer.jar
@@ -9,7 +9,7 @@ RUN mkdir -p /temp/cache && java -jar forge-server.jar --nogui --universe /temp/
 
 ################################
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21
 WORKDIR server
 
 COPY --from=builder server .
