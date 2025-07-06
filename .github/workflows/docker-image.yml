@@ -121,9 +121,9 @@ jobs:
       if: env.BUILD_NEEDED == 'true'
       run: |
         if [ -n "${{ github.event.inputs.LATEST_VERSION }}" ]; then
-          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server:${{ github.event.inputs.LATEST_VERSION }}" >> $GITHUB_ENV
+          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:${{ github.event.inputs.LATEST_VERSION }}" >> $GITHUB_ENV
         else
-          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server:${{ env.LATEST_VERSION }}" >> $GITHUB_ENV
+          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:${{ env.LATEST_VERSION }}" >> $GITHUB_ENV
         fi
     
     # Step 11: 为多种架构构建和推送Docker镜像
