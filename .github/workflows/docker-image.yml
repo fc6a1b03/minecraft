@@ -109,7 +109,7 @@ jobs:
         MODRINTH_API: "https://api.modrinth.com/v2"
       run: |
         response=$(curl -sfLS -H "User-Agent: GitHub-Actions/1.0" -H "Authorization: ${{ secrets.ACTIONS_TOKENS }}" \
-          "$MODRINTH_API/project/purpurextras/version?game_versions=[\"${{ env.LATEST_VERSION }}\"]&loaders=[\"purpur\"]")
+          "$MODRINTH_API/project/purpurextras/version?game_versions=${{ env.LATEST_VERSION }}&loaders=purpur")
         if [ -z "$response" ] || [ "$response" = "[]" ]; then
           echo "::error::No versions found for MC ${{ env.LATEST_VERSION }} with loader purpur"
           exit 1
