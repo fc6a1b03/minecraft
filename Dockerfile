@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jar
+FROM eclipse-temurin:21-jre
 
 WORKDIR server
 Expose 25565
