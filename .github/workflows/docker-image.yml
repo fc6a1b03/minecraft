@@ -209,7 +209,7 @@ jobs:
           echo "退出Actions"
           exit 1
           fi
-          curl -fSL -o ${{ env.JAR_CATALOG }}/fabric-api.jar "$FABRIC_API_DOWNLOAD_URL"
+          sudo curl -fSL -o ${{ env.JAR_CATALOG }}/fabric-api.jar "$FABRIC_API_DOWNLOAD_URL"
 
       # 并发下载所有模组文件
       - name: Download Mods in Parallel
@@ -221,7 +221,7 @@ jobs:
               jq -r '.data.downloadUrl')
             echo "$MOD_URL mods/$(basename "$MOD_URL")"
           done > download-list.txt
-          cat download-list.txt | parallel --bar -j$(nproc) curl -L -o ${{ env.JAR_CATALOG }}/{2} {1}
+          sudo cat download-list.txt | parallel --bar -j$(nproc) curl -L -o ${{ env.JAR_CATALOG }}/{2} {1}
 
       # 整理服务端文件
       - name: Prepare Server Files
