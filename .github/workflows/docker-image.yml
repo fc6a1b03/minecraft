@@ -66,7 +66,7 @@ jobs:
           while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
             echo "正在查找第 $((PAGE_INDEX+1)) 页..."
             # 获取当前页文件列表（按日期降序）
-            FILES_JSON=$(curl -f -s "$CURSEFORGE_API/mods/$PROJECT_ID/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=dateCreated&sortDescending=true&removeAlphas=true")
+            FILES_JSON=$(curl -f -s "$CURSEFORGE_API/mods/$PROJECT_ID/files?pageIndex=$((PAGE_INDEX))&pageSize=50&sort=dateCreated&sortDescending=true&removeAlphas=true")
             # 检查API响应是否有效
             if [[ -z "$FILES_JSON" ]]; then
               echo "::warning::API 返回空响应，将跳过该页"
@@ -79,15 +79,17 @@ jobs:
               ((PAGE_INDEX++))
               continue
             fi
-            # 修正：同时检查版本和加载器
-            FOUND_FILE=$(echo "$FILES_JSON" | jq -r --arg ver "$SERVER_VERSION" --arg loader "$MOD_LOADERS" '
-              .data? // [] | 
-              map(select(
-                (.gameVersions | any(contains($ver))) and
-                (.gameVersions | any(contains($loader)))
-              )) |
-              first | 
-              if . != null then {id, fileName} else null end
+            # 同时检查版本和加载器
+            FOUND_FILE=$(echo "$FILES_JSON" | jq -r \
+            --arg ver "$SERVER_VERSION" \
+            --arg loader "$MOD_LOADERS" '
+            .data? // [] |
+            map(select(
+            (.gameVersions | map(ascii_downcase) | any(contains($ver | ascii_downcase))) and
+            (.gameVersions | map(ascii_downcase) | any(contains($loader | ascii_downcase))))
+            )) |
+            first |
+            if . != null then {id, fileName} else null end
             ')
             # 找到匹配则跳出循环
             if [[ "$(echo "$FOUND_FILE" | jq -r '.id')" != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
