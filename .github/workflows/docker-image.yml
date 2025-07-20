@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       MOD_LOADERS:
-        description: '模组加载器 (fabric/forge)'
+        description: 'Minecraft模组加载器 (fabric/forge)'
         required: true
         default: 'fabric'
         type: string
@@ -53,7 +53,7 @@ jobs:
       - name: Download and Parse Manifest
         id: manifest
         run: |
-          # 初始化翻页参数
+          # 翻页参数
           PAGE_INDEX=0
           MAX_PAGES=10
           FOUND_FILE=""
@@ -71,6 +71,7 @@ jobs:
             echo "正在翻页查找匹配版本 (第 $PAGE_INDEX 页)..."
           done
           # 检查是否找到匹配文件
+          K
           if [[ -z "$FOUND_FILE" ]] || [[ $(echo "$FOUND_FILE" | jq -r '.id') == "null" ]]; then
             echo "::error::找不到匹配版本 ${{ inputs.SERVER_VERSION }} 的modpack文件"
             exit 1
@@ -78,8 +79,9 @@ jobs:
           # 提取文件信息
           FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
+          FILE_NAME_ENCODE=$(echo "$FOUND_FILE" | jq -r '.fileName | @uri')
           # 下载modpack
-          curl -fL -o modpack.zip "https://edge.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:2}/$FILE_NAME"
+          curl -fL -o modpack.zip "https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/FILE_NAME_ENCODE"
           # 解压并解析manifest
           unzip -j modpack.zip manifest.json -d .
           MANIFEST_JSON=$(jq -c . manifest.json)
