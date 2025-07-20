@@ -62,8 +62,9 @@ jobs:
           while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
             # 获取当前页文件列表（按日期降序）
             FILES_JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=fileDate&sortDescending=true")
-            # 检查匹配版本
+            # 检查匹配版本及模组加载器
             FOUND_FILE=$(echo "$FILES_JSON" | jq -r --arg ver "${{ inputs.SERVER_VERSION }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
+            FOUND_FILE=$(echo "FOUND_FILE" | jq -r --arg ver "${{ inputs.MOD_LOADERS }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
             # 找到匹配则跳出循环
             if [[ $(echo "$FOUND_FILE" | jq -r '.id') != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
               break
@@ -73,7 +74,7 @@ jobs:
           done
           # 检查是否找到匹配文件
           if [[ -z "$FOUND_FILE" ]] || [[ $(echo "$FOUND_FILE" | jq -r '.id') == "null" ]]; then
-            echo "::error::找不到匹配版本 ${{ inputs.SERVER_VERSION }} 的modpack文件"
+            echo "::error::找不到匹配版本 ${{ inputs.SERVER_VERSION }}/${{ inputs.MOD_LOADERS }} 的modpack文件"
             exit 1
           fi
           # 提取文件信息
