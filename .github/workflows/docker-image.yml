@@ -70,7 +70,7 @@ jobs:
           # 翻页查找匹配版本的文件
           while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
             echo "正在查找第 $((PAGE_INDEX+1)) 页..."
-            API_URL="${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageInde=$(PAGE_INDEX)&pageSize=50&sort=dateCreated&sortDescending=true"
+            API_URL="${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageInde=$PAGE_INDEX&pageSize=50&sort=dateCreated&sortDescending=true"
             echo "请求URL: ${API_URL}"
             FILES_JSON=$(curl -v -s -w "\nHTTP_STATUS:%{http_code}" "${API_URL}")
             HTTP_STATUS=$(echo "$FILES_JSON" | grep 'HTTP_STATUS:' | sed 's/HTTP_STATUS://')
