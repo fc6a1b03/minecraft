@@ -64,7 +64,7 @@ jobs:
             FILES_JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=fileDate&sortDescending=true")
             # 检查匹配版本及模组加载器
             FOUND_FILE=$(echo "$FILES_JSON" | jq -r --arg ver "${{ inputs.SERVER_VERSION }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
-            FOUND_FILE=$(echo "FOUND_FILE" | jq -r --arg ver "${{ inputs.MOD_LOADERS }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
+            FOUND_FILE=$(echo "$FOUND_FILE" | jq -r --arg ver "${{ inputs.MOD_LOADERS }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
             # 找到匹配则跳出循环
             if [[ $(echo "$FOUND_FILE" | jq -r '.id') != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
               break
