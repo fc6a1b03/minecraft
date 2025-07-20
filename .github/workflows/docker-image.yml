@@ -113,15 +113,7 @@ jobs:
             exit 1
           }
           MANIFEST_JSON=$(jq -c . manifest.json)
-          echo "MANIFEST_JSON=$MANIFEST_JSON" >> $GITHUB_ENV
-          echo "MINECRAFT_VERSION=$(jq -r '.minecraft.version' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
-          echo "FILE_IDS=$(jq -r '[.files[] | "\(.projectId):\(.fileId)"] | join(",")' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
-          echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
-          echo "成功下载版本 $SERVER_VERSION 的modpack文件：$FILE_NAME"
-
-      # 规范化镜像名称
-      - name: Normalize Image Name
-        run: |
+          # 规范化镜像名称
           MODPACK_NAME=$(echo "$MANIFEST_JSON" | jq -r '.name')
           # 转换规则：小写化、空格转横线、移除特殊字符 
           NORMALIZED_NAME=$(echo "$MODPACK_NAME" | 
@@ -131,6 +123,10 @@ jobs:
           MODPACK_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.version')
           echo "NORMALIZED_NAME=$NORMALIZED_NAME" >> $GITHUB_ENV
           echo "MODPACK_VERSION=$MODPACK_VERSION" >> $GITHUB_ENV
+          echo "MINECRAFT_VERSION=$(jq -r '.minecraft.version' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
+          echo "FILE_IDS=$(jq -r '[.files[] | "\(.projectId):\(.fileId)"] | join(",")' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
+          echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
+          echo "成功下载版本 $SERVER_VERSION 的modpack文件：$FILE_NAME"
 
       # 安装模组加载器
       - name: Install Mod Loader
@@ -141,8 +137,7 @@ jobs:
               FABRIC_META="https://meta.fabricmc.net/v2/versions"
               LOADER_VER=$(curl -s $FABRIC_META/loader | jq -r '.[0].version')
               INSTALLER_VER=$(curl -s $FABRIC_META/installer | jq -r '.[0].version')
-              curl -fSL -o server-core.jar \
-                "https://meta.fabricmc.net/v2/versions/loader/${{ env.MINECRAFT_VERSION }}/$LOADER_VER/$INSTALLER_VER/server/jar"
+              curl -fSL -o server-core.jar "https://meta.fabricmc.net/v2/versions/loader/${MINECRAFT_VERSION}/${LOADER_VER}/${INSTALLER_VER}/server/jar"
               # 获取Fabric API
               FABRIC_API_URL=$(curl -s "https://api.github.com/repos/FabricMC/fabric/releases" | 
                 jq -r --arg ver "${{ env.MINECRAFT_VERSION }}" '.[] | select(.tag_name | contains($ver)) | .assets[0].browser_download_url')
