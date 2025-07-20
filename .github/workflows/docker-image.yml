@@ -90,20 +90,18 @@ jobs:
             fi
             # 内容过滤
             FOUND_FILE=$(echo "$FILES_JSON" | jq -r \
-              --arg ver "$SERVER_VERSION" \
-              --arg loader "$MOD_LOADERS" '
-              .data? // [] |
-              map(select(
-              # 1. 过滤null值，避免比较崩溃
-              .gameVersions != null and
-              # 2. 精确匹配前先标准化格式（忽略大小写/空格）
-              (
-              (.gameVersions | map(select(. != null) | map(ascii_downcase)) | any(. == ($ver | ascii_downcase))) and
-              (.gameVersions | map(select(. != null) | map(ascii_downcase)) | any(. == ($loader | ascii_downcase)))
-              )
-              )) |
-              # 3. 安全获取首个结果：空数组时返回null而非报错
-              if length > 0 then .[0] | {id, fileName} else null end
+            --arg ver "$SERVER_VERSION" \
+            --arg loader "$MOD_LOADERS" '
+            .data? // [] |
+            map(select(
+            .gameVersions != null and
+            (
+            ([.gameVersions] | flatten | map(select(. != null) | ascii_downcase) | any(. == ($ver | ascii_downcase)))
+            and
+            ([.gameVersions] | flatten | map(select(. != null) | ascii_downcase) | any(. == ($loader | ascii_downcase)))
+            )
+            )) |
+            if length > 0 then .[0] | {id, fileName} else null end
             ')
             # 调试输出
             echo "过滤结果: ${FOUND_FILE}"
