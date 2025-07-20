@@ -61,7 +61,7 @@ jobs:
           # 翻页查找匹配版本的文件
           while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
           # 获取当前页文件列表（按日期降序）
-          FILES_JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ env.PROJECT_ID }}/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=fileDate&sortDescending=true")
+          FILES_JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ env.PROJECT_ID }}/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=dateCreated&sortDescending=true&removeAlphas=true")
           # 修正：同时检查版本和加载器
           FOUND_FILE=$(echo "$FILES_JSON" | jq -r --arg ver "${{ env.SERVER_VERSION }}" --arg loader "${{ env.MOD_LOADERS }}" '
           .data[] |
