@@ -23,6 +23,7 @@ jobs:
     env:
       REGISTRY: ghcr.io
       JAR_CATALOG: public
+      TEMP_CACHE_CATALOG: /temp/cache/
       CURSEFORGE_API: https://www.curseforge.com/api/v1
       CURSEFORGE_DOWNLOAD_API: https://mediafilez.forgecdn.net/files
 
@@ -47,7 +48,8 @@ jobs:
 
       - name: Init Env
         run: |
-          mkdir -p ${{ env.JAR_CATALOG }}
+          sudo mkdir -p ${{ env.JAR_CATALOG }}
+          sudo mkdir -p ${{ env.TEMP_CACHE_CATALOG }}
           sudo apt-get -qq -y update
 
       - name: Download and Parse Manifest
@@ -61,34 +63,19 @@ jobs:
           MOD_LOADERS="${{ inputs.MOD_LOADERS }}"
           CURSEFORGE_API="${{ env.CURSEFORGE_API }}"
           SERVER_VERSION="${{ inputs.SERVER_VERSION }}"
-          # 验证环境变量
-          echo "使用参数:"
-          echo "PROJECT_ID=${PROJECT_ID}"
-          echo "MOD_LOADERS=${MOD_LOADERS}"
-          echo "SERVER_VERSION=${SERVER_VERSION}"
-          echo "CURSEFORGE_API=${CURSEFORGE_API}"
-          # 翻页查找匹配版本的文件
           while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
-            echo "正在查找第 $((PAGE_INDEX+1)) 页..."
             API_URL="${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageInde=$PAGE_INDEX&pageSize=50&sort=dateCreated&sortDescending=true"
-            echo "请求URL: ${API_URL}"
-            FILES_JSON=$(curl -v -s -w "\nHTTP_STATUS:%{http_code}" "${API_URL}")
+            FILES_JSON=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "${API_URL}")
             HTTP_STATUS=$(echo "$FILES_JSON" | grep 'HTTP_STATUS:' | sed 's/HTTP_STATUS://')
             FILES_JSON=$(echo "$FILES_JSON" | sed '/HTTP_STATUS:/d')
-            echo "HTTP响应状态: ${HTTP_STATUS}"
-            # 检查API响应是否有效
             if [[ "$HTTP_STATUS" != "200" ]]; then
-              echo "::warning::API 返回错误状态 ${HTTP_STATUS}"
               ((PAGE_INDEX++))
               continue
             fi
-            # 检查API响应是否为有效JSON
             if ! jq -e . >/dev/null 2>&1 <<<"$FILES_JSON"; then
-              echo "::warning::API 返回无效 JSON"
               ((PAGE_INDEX++))
               continue
             fi
-            # 内容过滤
             FOUND_FILE=$(echo "$FILES_JSON" | jq -r \
             --arg ver "$SERVER_VERSION" \
             --arg loader "$MOD_LOADERS" '
@@ -103,36 +90,24 @@ jobs:
             )) |
             if length > 0 then .[0] | {id, fileName} else null end
             ')
-            # 调试输出
-            echo "过滤结果: ${FOUND_FILE}"
-            # 找到匹配则跳出循环
             if [[ "$(echo "$FOUND_FILE" | jq -r '.id')" != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
-              echo "找到匹配文件！"
-              break
+            break
             fi
             ((PAGE_INDEX++))
           done
-          # 检查是否找到匹配文件
           if [[ -z "$FOUND_FILE" ]] || [[ "$(echo "$FOUND_FILE" | jq -r '.id')" == "null" ]]; then
             echo "::error::找不到匹配版本 $SERVER_VERSION/$MOD_LOADERS 的modpack文件"
             exit 1
           fi
-          # 提取文件信息
           FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
-          FILE_NAME_ENCODE=$(echo "$FILE_NAME" | tr -d '\n' | jq -sRr '@uri')
-          echo "找到匹配文件: ID=$FILE_ID, 文件名=$FILE_NAME"
-          # 修复下载URL格式
+          FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
           DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-          echo "下载URL: $DOWNLOAD_URL"
-          # 下载modpack
           curl -fL -o modpack.zip "$DOWNLOAD_URL" || {
             echo "::error::下载modpack文件失败"
             exit 1
           }
-          # 解压并解析manifest
           unzip -j modpack.zip manifest.json -d . || {
-            echo "解压失败，压缩包内容:"
             unzip -l modpack.zip || true
             echo "::error::解压manifest.json失败"
             exit 1
@@ -160,7 +135,6 @@ jobs:
       # 安装模组加载器
       - name: Install Mod Loader
         run: |
-          mkdir -p /temp/cache/
           case "${{ inputs.MOD_LOADERS }}" in
             fabric)
               # 安装Fabric核心 
@@ -174,7 +148,7 @@ jobs:
                 jq -r --arg ver "${{ env.MINECRAFT_VERSION }}" '.[] | select(.tag_name | contains($ver)) | .assets[0].browser_download_url')
               curl -fSL -o ${{ env.JAR_CATALOG }}/fabric-api.jar "$FABRIC_API_URL"
               # 初始化服务端
-              java -jar server-core.jar --nogui --universe /temp/cache/
+              java -jar server-core.jar --nogui --universe ${{ env.TEMP_CACHE_CATALOG }}
               ;;
             forge)
               # 安装Forge核心 
@@ -191,7 +165,7 @@ jobs:
               java -jar forge-installer.jar --installServer
               mv forge-${{ env.MINECRAFT_VERSION }}-$FORGE_VERSION-universal.jar server-core.jar
               rm -rf server.properties eula.txt README.txt user_jvm_args.txt forge-installer.jar *.log run.bat run.sh
-              java -jar server-core.jar --nogui --universe /temp/cache/
+              java -jar server-core.jar --nogui --universe ${{ env.TEMP_CACHE_CATALOG }}
               ;;
             *)
               echo "::error::Unsupported loader: ${{ inputs.MOD_LOADERS }}"
