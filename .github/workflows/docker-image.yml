@@ -221,7 +221,7 @@ jobs:
               jq -r '.data.downloadUrl')
             echo "$MOD_URL mods/$(basename "$MOD_URL")"
           done > download-list.txt
-          sudo cat download-list.txt | parallel --bar -j$(nproc) curl -L -o ${{ env.JAR_CATALOG }}/{2} {1}
+          sudo sh -c "cat download-list.txt | parallel --bar -j$(nproc) curl -L -o ${{ env.JAR_CATALOG }}/{2} {1}"
 
       # 整理服务端文件
       - name: Prepare Server Files
