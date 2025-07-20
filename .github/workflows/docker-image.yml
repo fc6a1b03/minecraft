@@ -90,18 +90,23 @@ jobs:
             fi
             # 内容过滤
             FOUND_FILE=$(echo "$FILES_JSON" | jq -r \
-            --arg ver "$SERVER_VERSION" \
-            --arg loader "$MOD_LOADERS" '
-            .data? // [] |
-            map(select(
-              (.gameVersions | any(. == $ver)) and
-              (.gameVersions | any(. == $loader))
-            )) |
-            first |
-            if . != null then {id, fileName} else null end
+              --arg ver "$SERVER_VERSION" \
+              --arg loader "$MOD_LOADERS" '
+              .data? // [] |
+              map(select(
+              # 1. 过滤null值，避免比较崩溃
+              .gameVersions != null and
+              # 2. 精确匹配前先标准化格式（忽略大小写/空格）
+              (
+              (.gameVersions | map(select(. != null) | map(ascii_downcase)) | any(. == ($ver | ascii_downcase))) and
+              (.gameVersions | map(select(. != null) | map(ascii_downcase)) | any(. == ($loader | ascii_downcase)))
+              )
+              )) |
+              # 3. 安全获取首个结果：空数组时返回null而非报错
+              if length > 0 then .[0] | {id, fileName} else null end
             ')
             # 调试输出
-            echo "jq查询结果: ${FOUND_FILE}"
+            echo "过滤结果: ${FOUND_FILE}"
             # 找到匹配则跳出循环
             if [[ "$(echo "$FOUND_FILE" | jq -r '.id')" != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
               echo "找到匹配文件！"
