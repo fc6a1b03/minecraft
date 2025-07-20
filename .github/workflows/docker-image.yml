@@ -24,6 +24,7 @@ jobs:
       REGISTRY: ghcr.io
       JAR_CATALOG: public
       CURSEFORGE_API: https://www.curseforge.com/api/v1
+      CURSEFORGE_DOWNLOAD_API: https://mediafilez.forgecdn.net/files
 
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +72,6 @@ jobs:
             echo "正在翻页查找匹配版本 (第 $PAGE_INDEX 页)..."
           done
           # 检查是否找到匹配文件
-          K
           if [[ -z "$FOUND_FILE" ]] || [[ $(echo "$FOUND_FILE" | jq -r '.id') == "null" ]]; then
             echo "::error::找不到匹配版本 ${{ inputs.SERVER_VERSION }} 的modpack文件"
             exit 1
@@ -81,7 +81,7 @@ jobs:
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
           FILE_NAME_ENCODE=$(echo "$FOUND_FILE" | jq -r '.fileName | @uri')
           # 下载modpack
-          curl -fL -o modpack.zip "https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/FILE_NAME_ENCODE"
+          curl -fL -o modpack.zip "${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/FILE_NAME_ENCODE"
           # 解压并解析manifest
           unzip -j modpack.zip manifest.json -d .
           MANIFEST_JSON=$(jq -c . manifest.json)
