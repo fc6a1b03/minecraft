@@ -172,6 +172,7 @@ jobs:
         if: inputs.MOD_LOADERS == 'fabric'
         id: fabric_api_download_url
         run: |
+          SERVER_VERSION="${{ inputs.SERVER_VERSION }}"
           # Fabric API 基础 URL 和分页初始化
           PAGE=1
           FABRIC_API_DOWNLOAD_URL=""
