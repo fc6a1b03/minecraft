@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
 
-      - name: init Env
+      - name: Init Env
         run: |
           mkdir -p ${{ env.JAR_CATALOG }}
           sudo apt-get -qq -y update
@@ -120,17 +120,11 @@ jobs:
           # 提取文件信息
           FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
-          FILE_NAME_ENCODE=$(echo "$FILE_NAME" | jq -sRr '@uri')
+          FILE_NAME_ENCODE=$(echo "$FILE_NAME" | tr -d '\n' | jq -sRr '@uri')
           echo "找到匹配文件: ID=$FILE_ID, 文件名=$FILE_NAME"
           # 修复下载URL格式
-          DOWNLOAD_URL="https://media.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
+          DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
           echo "下载URL: $DOWNLOAD_URL"
-          # 下载前验证URL
-          if ! curl -I -f -s "$DOWNLOAD_URL" >/dev/null; then
-            ALTERNATE_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-            echo "尝试备用URL: $ALTERNATE_URL"
-            DOWNLOAD_URL="$ALTERNATE_URL"
-          fi
           # 下载modpack
           curl -fL -o modpack.zip "$DOWNLOAD_URL" || {
             echo "::error::下载modpack文件失败"
