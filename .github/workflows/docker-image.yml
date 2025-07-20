@@ -1,4 +1,4 @@
-name: Minecraft Modpack Server CI
+name: Minecraft Docker Image CI
 
 on:
   workflow_dispatch:
@@ -60,37 +60,49 @@ jobs:
           FOUND_FILE=""
           # 翻页查找匹配版本的文件
           while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
-            # 获取当前页文件列表（按日期降序）
-            FILES_JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=fileDate&sortDescending=true")
-            # 检查匹配版本及模组加载器
-            FOUND_FILE=$(echo "$FILES_JSON" | jq -r --arg ver "${{ inputs.SERVER_VERSION }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
-            FOUND_FILE=$(echo "$FOUND_FILE" | jq -r --arg ver "${{ inputs.MOD_LOADERS }}" '.data[] | select(.gameVersions[] | contains($ver)) | {id, fileName}' | jq -s 'first(.[])')
-            # 找到匹配则跳出循环
-            if [[ $(echo "$FOUND_FILE" | jq -r '.id') != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
-              break
-            fi
-            ((PAGE_INDEX++))
-            echo "正在翻页查找匹配版本 (第 $PAGE_INDEX 页)..."
-          done
+          # 获取当前页文件列表（按日期降序）
+          FILES_JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ env.PROJECT_ID }}/files?index=$((PAGE_INDEX*50))&pageSize=50&sort=fileDate&sortDescending=true")
+          # 修正：同时检查版本和加载器
+          FOUND_FILE=$(echo "$FILES_JSON" | jq -r --arg ver "${{ env.SERVER_VERSION }}" --arg loader "${{ env.MOD_LOADERS }}" '
+          .data[] |
+          select(
+          (.gameVersions | any(contains($ver))) and
+          (.gameVersions | any(contains($loader)))
+          ) |
+          {id, fileName} | first(.)
+          ')
+          # 找到匹配则跳出循环
+          if [[ $(echo "$FOUND_FILE" | jq -r '.id') != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
+            break
+          fi
+          ((PAGE_INDEX++))
+          echo "正在翻页查找匹配版本 (第 $PAGE_INDEX 页)..."
+          done  # 修正：结束while循环
           # 检查是否找到匹配文件
           if [[ -z "$FOUND_FILE" ]] || [[ $(echo "$FOUND_FILE" | jq -r '.id') == "null" ]]; then
-            echo "::error::找不到匹配版本 ${{ inputs.SERVER_VERSION }}/${{ inputs.MOD_LOADERS }} 的modpack文件"
-            exit 1
+            echo "::error::找不到匹配版本 ${{ env.SERVER_VERSION }}/${{ env.MOD_LOADERS }} 的modpack文件"
+          exit 1
           fi
           # 提取文件信息
           FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
-          FILE_NAME_ENCODE=$(echo "$FOUND_FILE" | jq -r '.fileName | @uri')
+          FILE_NAME_ENCODE=$(echo "$FILE_NAME" | jq -sRr '@uri')  # 修正：正确编码文件名
+          FORMATTED_ID=$(printf "%07d" "$FILE_ID")
+          PART1=${FORMATTED_ID:0:4}
+          PART2=${FORMATTED_ID:4:3}
           # 下载modpack
-          curl -fL -o modpack.zip "${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/FILE_NAME_ENCODE"
+          curl -fL -o modpack.zip "https://mediafilez.forgecdn.net/files/$PART1/$PART2/$FILE_NAME_ENCODE"
           # 解压并解析manifest
-          unzip -j modpack.zip manifest.json -d .
+          unzip -j modpack.zip manifest.json -d . || {
+            echo "::error::解压manifest.json失败"
+            exit 1
+          }
           MANIFEST_JSON=$(jq -c . manifest.json)
           echo "MANIFEST_JSON=$MANIFEST_JSON" >> $GITHUB_ENV
           echo "MINECRAFT_VERSION=$(jq -r '.minecraft.version' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
-          echo "FILE_IDS=$(jq -r '[.files[] | .projectId, .fileId] | join(":")' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
+          echo "FILE_IDS=$(jq -r '[.files[] | "\(.projectId):\(.fileId)"] | join(",")' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
           echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
-          echo "成功下载版本 ${{ inputs.SERVER_VERSION }} 的modpack文件：$FILE_NAME"
+          echo "成功下载版本 ${{ env.SERVER_VERSION }} 的modpack文件：$FILE_NAME"
 
       # 规范化镜像名称
       - name: Normalize Image Name
