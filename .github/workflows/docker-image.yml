@@ -134,7 +134,7 @@ jobs:
             map("\(.projectID):\(.fileID)") |
             join(",")
           ' <<< "$MANIFEST_JSON")
-          echo "MOD_LIST=MOD_LIST" >> $GITHUB_ENV
+          echo "MOD_LIST=$MOD_LIST" >> $GITHUB_ENV
           echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
           echo "成功下载版本$SERVER_VERSION的modpack：$FILE_NAME"
 
