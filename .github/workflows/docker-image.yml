@@ -29,11 +29,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      # 设置多架构构建环境
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -51,6 +48,12 @@ jobs:
           sudo mkdir -p ${{ env.JAR_CATALOG }}
           sudo mkdir -p ${{ env.TEMP_CACHE_CATALOG }}
           sudo apt-get -qq -y update
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
       - name: Download and Parse Manifest
         id: manifest
@@ -207,7 +210,7 @@ jobs:
           fi
           curl -fSL -o ${{ env.JAR_CATALOG }}/fabric-api.jar "$FABRIC_API_DOWNLOAD_URL"
 
-      # 并发下载所有模组文件（动态并行度）
+      # 并发下载所有模组文件
       - name: Download Mods in Parallel
         run: |
           mkdir -p mods
