@@ -38,7 +38,7 @@ jobs:
       # 验证Modpack是否存在
       - name: Validate Modpack
         run: |
-          RESPONSE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}")
+          RESPONSE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files")
           if [ $(echo "$RESPONSE" | jq -r '.data.id') == null ]; then
             echo "::error::Invalid Project ID"
             exit 1
