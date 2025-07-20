@@ -138,8 +138,8 @@ jobs:
           echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
           echo "成功下载版本$SERVER_VERSION的modpack：$FILE_NAME"
 
-      # 安装模组加载器
-      - name: Install Mod Loader
+      # 下载模组加载器
+      - name: Download Mod Loader
         run: |
           case "${{ inputs.MOD_LOADERS }}" in
             fabric)
@@ -174,8 +174,8 @@ jobs:
               ;;
           esac
 
-      #  获取结构 Fabric API 下载 URL
-      - name: Fetch Fabric API download URL
+      #  下载 Fabric API
+      - name: Download Fabric API
         if: inputs.MOD_LOADERS == 'fabric'
         id: fabric_api_download_url
         run: |
@@ -221,14 +221,16 @@ jobs:
       # 并发下载所有模组文件
       - name: Download Mods in Parallel
         run: |
-          mkdir -p mods
-          # 准备下载列表 
-          echo "${{ env.MOD_LIST }}" | tr ' ' '\n' | while IFS=":" read -r PID FID; do
-            MOD_URL=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID" | 
-              jq -r '.data.downloadUrl')
+          echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
+            # 获取文件元数据
+            API_RESPONSE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
+            # 提取并编码 downloadUrl
+            MOD_URL=$(echo "$API_RESPONSE" | jq -r '.data.downloadUrl // ""' | jq -Rr '@uri')
+            # 输出到下载列表
             echo "$MOD_URL mods/$(basename "$MOD_URL")"
           done > download-list.txt
-          sudo sh -c "cat download-list.txt | parallel --bar -j$(nproc) curl -L -o ${{ env.JAR_CATALOG }}/{2} {1}"
+          # 并行下载
+          sudo sh -c "parallel -j$(nproc) curl -fL -o ${{ env.JAR_CATALOG }}/{2} {1} :::: download-list.txt"
 
       # 整理服务端文件
       - name: Prepare Server Files
