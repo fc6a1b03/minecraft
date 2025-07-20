@@ -1,23 +1,5 @@
-这个分支将会使用[Fabric](https://fabricmc.net/use/server/)作为模组插件
+这个分支将会使用[Modpacks](https://www.curseforge.com/minecraft/modpacks)作为构建核心，基于其中的`manifest.json`创建镜像
 
-### 获取`Fabric`文件
-> [Fabric元数据](https://meta.fabricmc.net/)
-> 
-> `Fabric`会自动下载指定版本的`Server`文件
-1. 通过完整版本信息连接 [version_fabric](https://meta.fabricmc.net/v2/versions/)
-2. 通过`JSONPath`过滤类型
-   - 获取`server_version`，具体表达式为：`$.game[?(@.stable==true)].version`，会得到一个版本集合，选择需要的即可
-   - 获取`fabric_loader_version`，具体表达式为：`$.loader[?(@.stable==true)].version`
-   - 获取`fabric_installer_version`，具体表达式为：`$.installer[?(@.stable==true)].version`
-4. 组合完整`Fabric`下载连接：https://meta.fabricmc.net/v2/versions/loader/{server_version}/{fabric_loader_version}/{fabric_installer_version}/server/jar
-5. 获取`fabric-api`
-   1. 通过完整版本信息连接 [version_fabric_api](https://api.github.com/repos/FabricMC/fabric/releases?per_page=100&page=1)`单词最大100条，得翻页查询`
-   2. 获取`fabric-api`下载路径，具体表达式为：`$[?(@.target_commitish=='{server_version}')].assets.*.browser_download_url`，可能会有多个版本，取第一个最新的即可。
-   3. 下载的模组`jar`文件放置在`mods`中即可
-6. 请求完整`Fabric`下载连接即可获得对应`Server`版本最新的`Fabric`插件包
-   - 需要将`fabric-server-mc.{server_version}-loader.{fabric_loader_version}-launcher.{server_version}.jar`放置于`server.jar`同级目录下
-   - 启动命令，需要将`server.jar`替换为`fabric-server-mc.{server_version}-loader.{fabric_loader_version}-launcher.{server_version}.jar`即可
-   
 ### 制作Dockerfile
 - [Dockerfile](Dockerfile)
 - docker build -t minecraft-server-fabric .
@@ -41,8 +23,7 @@
     1. 通过自有配置覆盖来修改密码
     2. 通过`docker exec -it minecraft-server-fabric cat /server/server.properties`查询密码
 
-### 默认模组信息预览
-![模组](https://github.com/user-attachments/assets/b9b7801c-69ab-44c1-bad1-c0dfbd250de9)
+### 默认模组
 
 ### 补充信息
 - [客户端启动器](https://ci.huangyuhui.net/job/HMCL/)

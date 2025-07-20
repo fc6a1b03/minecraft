@@ -1,203 +1,155 @@
-name: Minecraft Docker Image CI
+name: Minecraft Modpack Server CI
 
-# 触发配置
 on:
-  schedule:
-    - cron: '0 0 */3 * *'
   workflow_dispatch:
     inputs:
+      PROJECT_ID:
+        description: 'CurseForge项目ID'
+        required: true
+        type: string
       SERVER_VERSION:
-        description: '要构建的Minecraft版本；只打版本镜像且会跳过`检查版本是否更新`和`记录最后构建版本`步骤'
-        required: false
-        default: ''
+        description: 'Minecraft服务端版本'
+        required: true
+        type: string
+      MOD_LOADERS:
+        description: '模组加载器 (fabric/forge)'
+        required: true
+        default: 'fabric'
         type: string
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      JAR_CATALOG: public
+      CURSEFORGE_API: https://api.curseforge.com/v1
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.ref }} 
+      - uses: actions/checkout@v4
 
-    # Step 1: 设置Docker Buildx
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      # 设置多架构构建环境
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    # Step 2: 为多平台构建安装QEMU
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    # Step 3: 设置仓库
-    - name: Set registry environment variable
-      run: echo "REGISTRY=ghcr.io" >> $GITHUB_ENV
-
-    # Step 4: 登录Docker Hub
-    # - name: Login to Docker Hub
-    #   uses: docker/login-action@v3
-    #   with:
-    #     username: ${{ secrets.DOCKER_USERNAME }}
-    #     password: ${{ secrets.DOCKER_PASSWORD }}
-
-    # Step 5: 登录本仓库
-    - name: Log in to the Container registry
-      uses: docker/login-action@v3
-      id: docker-login
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    # Step 6: 获取 Fabric 相关版本信息
-    - name: Fetch Fabric version info
-      id: fabric_version_info
-      run: |
-        # Fabric版本地址
-        FABRIC_META_URL="https://meta.fabricmc.net/v2/versions"
-        # 获取稳定的 Minecraft Server 版本
-        if [ -z "${{ github.event.inputs.SERVER_VERSION }}" ]; then
-          SERVER_VERSION=$(curl -s $FABRIC_META_URL/game | jq -r '[.[] | select(.stable==true)][0].version')
-        else
-          SERVER_VERSION=${{ github.event.inputs.SERVER_VERSION }}
-        fi
-        # 获取稳定的 Fabric Loader 版本
-        FABRIC_LOADER_VERSION=$(curl -s $FABRIC_META_URL/loader | jq -r '[.[] | select(.stable==true)][0].version')
-        # 获取稳定的 Fabric Installer 版本
-        FABRIC_INSTALLER_VERSION=$(curl -s $FABRIC_META_URL/installer | jq -r '[.[] | select(.stable==true)][0].version')
-        # 生成 Fabric Server 下载 URL
-        FABRIC_SERVER_URL="https://meta.fabricmc.net/v2/versions/loader/${SERVER_VERSION}/${FABRIC_LOADER_VERSION}/${FABRIC_INSTALLER_VERSION}/server/jar"
-        # 将信息写入ENV
-        echo "SERVER_VERSION=$SERVER_VERSION" >> $GITHUB_ENV
-        echo "FABRIC_LOADER_VERSION=$FABRIC_LOADER_VERSION" >> $GITHUB_ENV
-        echo "FABRIC_INSTALLER_VERSION=$FABRIC_INSTALLER_VERSION" >> $GITHUB_ENV
-        echo "FABRIC_SERVER_URL=$FABRIC_SERVER_URL" >> $GITHUB_ENV
-
-    # Step 7: 检查版本是否更新
-    - name: Check if version is updated
-      id: check_version
-      run: |
-        # 检查是否手动输入了 SERVER_VERSION
-        if [ -z "${{ github.event.inputs.SERVER_VERSION }}" ]; then
-          # 尝试从`last_built_version.txt`中获取版本号
-          if [ -f last_built_version.txt ]; then
-            LAST_BUILT_VERSION=$(cat last_built_version.txt)
-          else
-            LAST_BUILT_VERSION="none"
+      # 验证Modpack是否存在
+      - name: Validate Modpack
+        run: |
+          RESPONSE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}")
+          if [ $(echo "$RESPONSE" | jq -r '.data.id') == null ]; then
+            echo "::error::Invalid Project ID"
+            exit 1
           fi
-          # 检查是否需要继续构建
-          if [ "$LAST_BUILT_VERSION" = "none" ]; then
-            # 没有旧版本时继续构建
-            echo "BUILD_NEEDED=true" >> $GITHUB_ENV
-          elif [ "$SERVER_VERSION" \> "$LAST_BUILT_VERSION" ]; then
-            # 如果新版本大于旧版本则继续构建
-            echo "BUILD_NEEDED=true" >> $GITHUB_ENV
-          else
-            # 如果新版本不大于旧版本则跳过构建
-            echo "BUILD_NEEDED=false" >> $GITHUB_ENV
+
+      - name: init Env
+        run: |
+          mkdir -p ${{ env.JAR_CATALOG }}
+          sudo apt-get -qq -y update
+
+      # 下载并解析manifest.json
+      - name: Download and Parse Manifest
+        id: manifest
+        run: |
+          # 获取最新文件ID
+          FILE_ID=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files" | jq -r '.data[0].id')
+          # 下载modpack 
+          curl -L -o modpack.zip "https://edge.forgecdn.net/files/$FILE_ID/$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files/$FILE_ID" | jq -r '.data.fileName')"
+          # 解压并解析manifest
+          unzip -j modpack.zip manifest.json -d .
+          MANIFEST=$(jq -c . manifest.json)
+          echo "MANIFEST_JSON=$MANIFEST" >> $GITHUB_ENV
+          echo "MINECRAFT_VERSION=$(echo "$MANIFEST" | jq -r '.minecraft.version')" >> $GITHUB_ENV
+          echo "FILE_IDS=$(echo "$MANIFEST" | jq -r '[.files[] | .projectId, .fileId] | join(":")')" >> $GITHUB_ENV
+          echo "MOD_LOADER_VERSION=$(echo "$MANIFEST" | jq -r '.minecraft.modLoaders[0].id' | cut -d- -f2)" >> $GITHUB_ENV
+
+      # 规范化镜像名称
+      - name: Normalize Image Name
+        run: |
+          MODPACK_NAME=$(echo "$MANIFEST_JSON" | jq -r '.name')
+          # 转换规则：小写化、空格转横线、移除特殊字符 
+          NORMALIZED_NAME=$(echo "$MODPACK_NAME" | 
+            tr '[:upper:]' '[:lower:]' |
+            tr ' ' '-' |
+            sed 's/[^a-z0-9_-]//g')
+          MODPACK_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.version')
+          echo "NORMALIZED_NAME=$NORMALIZED_NAME" >> $GITHUB_ENV
+          echo "MODPACK_VERSION=$MODPACK_VERSION" >> $GITHUB_ENV
+
+      # 安装模组加载器
+      - name: Install Mod Loader
+        run: |
+          mkdir -p /temp/cache/
+          case "${{ inputs.MOD_LOADERS }}" in
+            fabric)
+              # 安装Fabric核心 
+              FABRIC_META="https://meta.fabricmc.net/v2/versions"
+              LOADER_VER=$(curl -s $FABRIC_META/loader | jq -r '.[0].version')
+              INSTALLER_VER=$(curl -s $FABRIC_META/installer | jq -r '.[0].version')
+              curl -fSL -o server-core.jar \
+                "https://meta.fabricmc.net/v2/versions/loader/${{ env.MINECRAFT_VERSION }}/$LOADER_VER/$INSTALLER_VER/server/jar"
+              # 获取Fabric API
+              FABRIC_API_URL=$(curl -s "https://api.github.com/repos/FabricMC/fabric/releases" | 
+                jq -r --arg ver "${{ env.MINECRAFT_VERSION }}" '.[] | select(.tag_name | contains($ver)) | .assets[0].browser_download_url')
+              curl -fSL -o ${{ env.JAR_CATALOG }}/fabric-api.jar "$FABRIC_API_URL"
+              # 初始化服务端
+              java -jar server-core.jar --nogui --universe /temp/cache/
+              ;;
+            forge)
+              # 安装Forge核心 
+              PROMOTION_FILE="https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
+              FORGE_VERSION=$(curl -s $PROMOTION_FILE | jq -r --arg VER "${{ env.MINECRAFT_VERSION }}" '.promos[$VER + "-latest"]')
+              if [ "$FORGE_VERSION" = "null" ]; then
+                echo "::error::No Forge version available for ${{ env.MINECRAFT_VERSION }}"
+                exit 1
+              fi
+              # 下载安装器
+              curl -fSL -o forge-installer.jar \
+                "https://maven.minecraftforge.net/net/minecraftforge/forge/${{ env.MINECRAFT_VERSION }}-$FORGE_VERSION/forge-${{ env.MINECRAFT_VERSION }}-$FORGE_VERSION-installer.jar"
+              # 初始化服务端
+              java -jar forge-installer.jar --installServer
+              mv forge-${{ env.MINECRAFT_VERSION }}-$FORGE_VERSION-universal.jar server-core.jar
+              rm -rf server.properties eula.txt README.txt user_jvm_args.txt forge-installer.jar *.log run.bat run.sh
+              java -jar server-core.jar --nogui --universe /temp/cache/
+              ;;
+            *)
+              echo "::error::Unsupported loader: ${{ inputs.MOD_LOADERS }}"
+              exit 1
+              ;;
+          esac
+
+      # 并发下载所有模组文件（动态并行度）
+      - name: Download Mods in Parallel
+        run: |
+          mkdir -p mods
+          # 准备下载列表 
+          echo "${{ env.FILE_IDS }}" | tr ' ' '\n' | while IFS=":" read -r PID FID; do
+            MOD_URL=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID" | 
+              jq -r '.data.downloadUrl')
+            echo "$MOD_URL mods/$(basename "$MOD_URL")"
+          done > download-list.txt
+          cat download-list.txt | parallel --bar -j$(nproc) curl -L -o ${{ env.JAR_CATALOG }}/{2} {1}
+
+      # 整理服务端文件
+      - name: Prepare Server Files
+        run: |
+          # 清理旧文件并解压新内容
+          rm -rf server-files
+          unzip -o modpack.zip -d server-files
+          # 优先级：server-overrides > overrides 
+          if [ -d "server-files/server-overrides" ]; then
+            cp -rf server-files/server-overrides/* .
+          elif [ -d "server-files/overrides" ]; then
+            cp -rf server-files/overrides/* .
           fi
-        else
-          # 手动输入版本则直接构建
-          echo "BUILD_NEEDED=true" >> $GITHUB_ENV
-        fi
 
-    #  获取结构 Fabric API 下载 URL
-    - name: Fetch Fabric API download URL
-      if: env.BUILD_NEEDED == 'true'
-      id: fabric_api_download_url
-      run: |
-        # Fabric API 基础 URL 和分页初始化
-        PAGE=1
-        FABRIC_API_DOWNLOAD_URL=""
-        FABRIC_API_BASE_URL="https://api.github.com/repos/FabricMC/fabric/releases?per_page=100"
-        # 循环查找版本
-        while [[ -z "$FABRIC_API_DOWNLOAD_URL" ]]; do
-          # 请求当前页的 Fabric API 版本信息
-          FABRIC_API_URL="$FABRIC_API_BASE_URL&page=$PAGE"
-          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: token ${{ secrets.ACTIONS_TOKENS }}" "$FABRIC_API_URL")
-          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-          RESPONSE=$(echo "$RESPONSE" | head -n -1)
-          # 输出调试信息
-          echo "Fetching page $PAGE: $FABRIC_API_URL"
-          echo "HTTP Status: $HTTP_STATUS"
-          #echo "Response: $RESPONSE"
-          # 检查是否有数据返回或者达到上限
-          if [[ "$HTTP_STATUS" == "422" ]]; then
-            echo "未找到对应版本"
-            break
-           elif [[ "$HTTP_STATUS" == "]" ]]; then
-            echo "未找到对应版本"
-            break
-          elif [[ $(echo "$RESPONSE" | jq -r 'length') -eq 0 ]]; then
-            echo "未找到对应版本"
-            break
-          fi
-          # 尝试获取与当前 Server 版本匹配的 Fabric API 下载 URL
-          MATCHED_RELEASE=$(echo "$RESPONSE" | jq -r --arg SERVER_VERSION "$SERVER_VERSION" '[.[] | select(.target_commitish==$SERVER_VERSION)][0]')
-          FABRIC_API_DOWNLOAD_URL=$(echo "$MATCHED_RELEASE" | jq -r '.assets[0].browser_download_url // ""')
-          # 增加页码，准备翻页
-          PAGE=$((PAGE + 1))
-        done
-        if [[ -z "$FABRIC_API_DOWNLOAD_URL" ]]; then
-          echo "退出Actions"
-          exit 1
-        fi
-        # 将信息写入ENV
-        echo "FABRIC_API_DOWNLOAD_URL=$FABRIC_API_DOWNLOAD_URL" >> $GITHUB_ENV
-
-    # Step 8: 下载 Fabric Server 和 Fabric API
-    - name: Download Fabric server and API
-      if: env.BUILD_NEEDED == 'true'
-      run: |
-        # 下载 Fabric Server
-        curl -fSL -o fabric-server.jar "$FABRIC_SERVER_URL"
-        # 下载 Fabric API
-        curl -fSL -o fabric-api.jar "$FABRIC_API_DOWNLOAD_URL"
-
-    # Step 9: 生成随机RCON密码
-    - name: Generate random RCON password
-      if: env.BUILD_NEEDED == 'true'
-      id: generate_password
-      run: |
-        RCON_PASSWORD=$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 30)
-        echo "RCON_PASSWORD=$RCON_PASSWORD" >> $GITHUB_ENV
-
-    # Step 10: 将随机生成的密码写入 server.properties
-    - name: Update server.properties with RCON password
-      if: env.BUILD_NEEDED == 'true'
-      run: |
-        sed -i '/^rcon.password=/c\rcon.password=${{ env.RCON_PASSWORD }}' server.properties
-
-    # Step 11: 准备 Docker 镜像标签
-    - name: Prepare Docker tags
-      id: prepare_tags
-      if: env.BUILD_NEEDED == 'true'
-      run: |
-        if [ -n "${{ github.event.inputs.SERVER_VERSION }}" ]; then
-          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-fabric:${{ github.event.inputs.SERVER_VERSION }}" >> $GITHUB_ENV
-        else
-          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-fabric:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-fabric:${{ env.SERVER_VERSION }}" >> $GITHUB_ENV
-        fi
-    
-    # Step 12: 为多种架构构建和推送Docker镜像
-    - name: Build and push Docker image
-      if: env.BUILD_NEEDED == 'true'
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        tags: ${{ env.TAGS }}
-        platforms: linux/amd64,linux/arm64
-
-    # Step 13: 更新记录的最后构建版本
-    - name: Update last built version
-      if: env.BUILD_NEEDED == 'true' && github.event.inputs.SERVER_VERSION == ''
-      run: |
-        echo $SERVER_VERSION > last_built_version.txt
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
-        git add last_built_version.txt
-        git commit -m "Update last built version to $SERVER_VERSION"
-        git push --force
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 构建并推送多架构镜像
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.NORMALIZED_NAME }}:${{ env.MODPACK_VERSION }}
