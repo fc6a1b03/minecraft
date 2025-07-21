@@ -241,9 +241,8 @@ jobs:
             FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
             FILE_ID=$(echo "$FOUND_FILE" | jq -r '.data.id')
             FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.data.fileName')
-            FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
-            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-            printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
+            RAW_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME"
+            printf '%s\t%s\n' "$DOWNLOAD_URL" $(printf '%s' "$RAW_URL" | jq -sRr '@uri')
           done > download-list.txt
           # 启动并发下载
           sudo bash -c "
