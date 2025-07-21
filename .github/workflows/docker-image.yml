@@ -163,24 +163,25 @@ jobs:
             FILE_ID=$(echo "$FILE_JSON" | jq -r '.data.id')
             SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
             DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$SAFE_FILE_NAME"
-            CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
-            printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
+            # 打印日志 + 输出一行
+            echo "[下载] $FILE_NAME  ->  $DOWNLOAD_URL"
+            printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
           done < <(echo "${MOD_LIST}" | tr ',' '\n') > download-list.txt
           TOTAL=$(wc -l < download-list.txt)
-          echo "===== 共有 ${TOTAL} 个模组需要下载 ====="
+          echo "===== 最终 ${TOTAL} 个模组待下载 ====="
           [[ $TOTAL -eq 0 ]] && { echo "无文件可下载，结束"; exit 0; }
           sudo bash -c "
             parallel --will-cite -j\$(nproc) --colsep '\t' '
               URL={1}
               CLEAN_NAME={2}
-              echo \"[下载] \$CLEAN_NAME\"
+              echo \"[开始] \$CLEAN_NAME\"
               OUTPUT_PATH=\"${JAR_CATALOG}/\$CLEAN_NAME\"
               if curl -k -sS -fL -o \"\$OUTPUT_PATH\" \
                     -H \"User-Agent: Mozilla/5.0\" \
                     -H \"Referer: https://curseforge.com/\" \
                     --globoff \
                     \"\$URL\"; then
-                echo \"[成功] \$CLEAN_NAME\"
+                echo \"[完成] \$CLEAN_NAME\"
               else
                 echo \"[失败] \$CLEAN_NAME\"
                 exit 1
