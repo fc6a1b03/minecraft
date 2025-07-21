@@ -183,28 +183,19 @@ jobs:
       # 生成启动脚本
       - name: Build start script
         run: |
-          case "${{ inputs.MOD_LOADERS }}" in
-            fabric)
-              cat > start.sh <<'EOF'
-              #!/bin/sh
-              exec java ${JVM_OPTS} -jar server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/
-              EOF
-              ;;
-            forge)
-              cat > start.sh <<'EOF'
-              #!/bin/sh
-              exec java ${JVM_OPTS} -jar server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/
-              EOF
-              ;;
-            neoforge)
-              cat > start.sh <<'EOF'
-              #!/bin/sh
-              chmod +x run.sh
-              exec bash -c "JVM_OPTS=\"$JVM_OPTS\" ./run.sh --nogui --eraseCache --forceUpgrade --universe /data/"
-              EOF
-              ;;
+          {
+            echo '#!/bin/sh'
+            case "${{ inputs.MOD_LOADERS }}" in
+              fabric|forge)
+                echo 'exec java ${JVM_OPTS} -jar server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/'
+                ;;
+              neoforge)
+                echo 'chmod +x run.sh'
+                echo 'exec bash -c "JVM_OPTS=\"$JVM_OPTS\" ./run.sh --nogui --eraseCache --forceUpgrade --universe /data/"'
+                ;;
             esac
-            chmod +x start.sh
+          } > start.sh
+          chmod +x start.sh
 
       # 构建并推送多架构镜像
       - name: Build and Push Docker Image
