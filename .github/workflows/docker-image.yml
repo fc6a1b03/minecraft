@@ -211,4 +211,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             JDK_VERSION=${{ inputs.JDK_VERSION }}
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.NORMALIZED_NAME }}:${{ env.MOD_LOADERS }}-${{ env.MODPACK_VERSION }}-${{ env.JDK_VERSION }}
+          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.NORMALIZED_NAME }}:${{ inputs.MOD_LOADERS }}-${{ env.MODPACK_VERSION }}-${{ inputs.JDK_VERSION }}
