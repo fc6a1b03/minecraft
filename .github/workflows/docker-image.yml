@@ -222,31 +222,16 @@ jobs:
       - name: Download Mods in Parallel
         run: |
           echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            # 获取文件元数据
-            FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
-            FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
-            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
-            FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
-            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-            echo "下载地址: $DOWNLOAD_URL"
-            # 使用 tab 分隔URL和文件名
-            echo -e "$DOWNLOAD_URL\t$FILE_NAME"
+          FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
+          FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
+          FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName' | xargs)
+          FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
+          DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
+          printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
           done > download-list.txt
-          # 并行下载，使用-c 参数指定 tab 分隔，同时 -sS 让 curl 保持静默显示错误
-          sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -sS -fL -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
-
-      # 整理服务端文件
-      - name: Prepare Server Files
-        run: |
-          # 清理旧文件并解压新内容
-          rm -rf server-files
-          unzip -o modpack.zip -d server-files
-          # 优先级：server-overrides > overrides 
-          if [ -d "server-files/server-overrides" ]; then
-            cp -rf server-files/server-overrides/* .
-          elif [ -d "server-files/overrides" ]; then
-            cp -rf server-files/overrides/* .
-          fi
+          sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -sS -fL \
+            -H 'User-Agent: Mozilla/5.0' -H 'Referer: https://curseforge.com/' \
+            -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
 
       # 构建并推送多架构镜像
       - name: Build and Push Docker Image
