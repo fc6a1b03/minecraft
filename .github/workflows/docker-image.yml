@@ -237,43 +237,37 @@ jobs:
       - name: Download Mods in Parallel
         run: |
           # 生成下载清单
-          echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
-            FILE_ID=$(echo "$FOUND_FILE" | jq -r '.data.id')
-            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.data.fileName')
-            # 处理所有特殊字符编码
-            SAFE_FILE_NAME=$(printf '%s' "$FILE_NAME" | 
-                              sed -e "s/'//g" \
-                                  -e 's/+/%2B/g' \
-                                  -e 's/ /%20/g' \
-                                  -e 's/!/%21/g' \
-                                  -e 's/"/%22/g')
-            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$SAFE_FILE_NAME"
-            # 创建安全文件名（移除特殊字符）
+          echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
+            JSON=$(curl -s "${CURSEFORGE_API}/mods/${PID}/files/${FID}")
+            FILE_ID=$(echo "$JSON" | jq -r '.data.id')
+            FILE_NAME=$(echo "$JSON" | jq -r '.data.fileName')
+            # 文件名 URL-encode
+            SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
+            # 下载地址
+            DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/${SAFE_FILE_NAME}"
+            # 文件名
             CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
           done > download-list.txt
           # 并发下载
           sudo bash -c "
-            parallel --will-cite -j$(nproc) --colsep '\t' '
-              URL=\"{1}\"
-              CLEAN_NAME=\"{2}\"
-              echo \"[下载链接] \$URL\"
-              # 输出路径
-              OUTPUT_PATH=\"${{ env.JAR_CATALOG }}/\$CLEAN_NAME\"
-              if curl -k -sS -fL -o \"\$OUTPUT_PATH\" \
-                   -H \"User-Agent: Mozilla/5.0\" \
-                   -H \"Referer: https://curseforge.com/\" \
-                   --noproxy \"*\" \
-                   --globoff \
-                   \"\$URL\"
-              then
-                echo \"[成功] \$CLEAN_NAME 已下载\"
-              else
-                STATUS=\$?
-                echo \"[失败] \$CLEAN_NAME 下载失败 (退出码: \$STATUS)\" >&2
-                exit 1
-              fi
+            parallel --will-cite -j\$(nproc) --colsep '\t' '
+            URL={1}
+            CLEAN_NAME={2}
+            echo \"[下载链接] \$URL\"
+            OUTPUT_PATH=\"${JAR_CATALOG}/\$CLEAN_NAME\"
+            if curl -k -sS -fL -o \"\$OUTPUT_PATH\" \
+                  -H \"User-Agent: Mozilla/5.0\" \
+                  -H \"Referer: https://curseforge.com/\" \
+                  --globoff \
+                  \"\$URL\"
+            then
+              echo \"[成功] \$CLEAN_NAME 已下载\"
+            else
+              STATUS=\$?
+              echo \"[失败] \$CLEAN_NAME 下载失败 (退出码: \$STATUS)\" >&2
+              exit 1
+            fi
             ' :::: download-list.txt
           "
 
