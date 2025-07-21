@@ -10,10 +10,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  JAR_CATALOG: public
-  TEMP_CACHE_CATALOG: /temp/cache/
+  JAR_CATALOG: ${{ github.workspace }}/public
   CURSEFORGE_API: https://www.curseforge.com/api/v1
   FABRIC_META: https://meta.fabricmc.net/v2/versions
+  TEMP_CACHE_CATALOG: ${{ github.workspace }}/temp/cache
   CURSEFORGE_DOWNLOAD_API: https://mediafilez.forgecdn.net/files
   FORGE_DOWNLOAD: https://maven.minecraftforge.net/net/minecraftforge/forge
   FABRIC_API_BASE_URL: https://api.github.com/repos/FabricMC/fabric/releases?per_page=100
