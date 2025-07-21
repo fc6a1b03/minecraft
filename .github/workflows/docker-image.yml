@@ -238,7 +238,7 @@ jobs:
           echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
             FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
             FILE_ID=$(echo "$FOUND_FILE" | jq -r '.data.id')
-            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.data.fileName' | xargs)
+            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.data.fileName')
             FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
             DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
