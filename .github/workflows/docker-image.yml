@@ -137,8 +137,8 @@ jobs:
               run forge.jar "forge-$MINECRAFT_VERSION-$fv-universal.jar"
               ;;
             neoforge)
-              pre=${MINECRAFT_VERSION#1.}; pre=${pre%.*}
-              nv=$(curl -k -s "$NEO_FORGED_VERSION" | jq -r --arg p "$pre" '.versions|map(select(test("^"+$p+"\\.[0-9]+$")))|last')
+              nv=$(curl -k -s "$NEO_FORGED_VERSION" | jq -r --arg mc "${MINECRAFT_VERSION#1.}" '.versions | map(select(startswith($mc+"."))) | last // empty')
+              [[ -z $nv ]] && { echo "::error::未找到支持 MC $MINECRAFT_VERSION 的 NeoForge"; exit 1; }
               dl "$NEO_FORGED_FILE/$nv/neoforge-$nv-installer.jar" neo.jar
               run neo.jar "neoforge-$nv-server.jar"
               ;;
