@@ -1,6 +1,7 @@
 temp
+*.md
 *.bat
 *.log
 *.txt
-*.properties
+Dockerfile
 logs/**/*.log

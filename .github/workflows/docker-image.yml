@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REGISTRY: ghcr.io
-      JAR_CATALOG: ${{ github.workspace }}/public
+      JAR_CATALOG: ${{ github.workspace }}/mods
       CURSEFORGE_API: https://www.curseforge.com/api/v1
       FABRIC_META: https://meta.fabricmc.net/v2/versions
       TEMP_CACHE_CATALOG: ${{ github.workspace }}/temp/cache/
@@ -120,6 +120,8 @@ jobs:
                 `MOD_LOADER_VERSION=${loaderVer}`
               ].join('\n')
             );
+            require('fs').unlinkSync('modpack.zip');
+            require('fs').unlinkSync('manifest.json');
             core.info(`成功下载版本 ${SERVER_VERSION} 的 modpack：${files.fileName}`);
 
       # 下载模组加载器

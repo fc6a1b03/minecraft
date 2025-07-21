@@ -4,7 +4,6 @@ WORKDIR server
 Expose 25565
 
 COPY . .
-RUN mv public /
 RUN echo "eula=true" > eula.txt
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
@@ -49,4 +48,4 @@ ENV JVM_OPTS="\
 -XX:+UseStringDeduplication" \
     TZ=Asia/Shanghai
 
-ENTRYPOINT ["sh", "-c", "mkdir -p mods && cp -r /public/* mods/ && ./start.sh"]
+ENTRYPOINT ["sh", "-c", "./start.sh"]
