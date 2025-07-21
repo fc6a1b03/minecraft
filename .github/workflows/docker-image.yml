@@ -249,11 +249,11 @@ jobs:
           sudo bash -c "
             parallel --will-cite -j$(nproc) --colsep '\t' '
               echo \"[下载链接] {1}\"
-              if curl -k -sS -fL -o \"${{ env.JAR_CATALOG }}/{2}\" \
+              if curl -k -v -sS -fL -o \"${{ env.JAR_CATALOG }}/{2}\" \
                 -H \"User-Agent: Mozilla/5.0\" \
                 -H \"Referer: https://curseforge.com/\" \
                 --noproxy \"*\" \
-                \"{1}\" >/dev/null 2>&1;
+                \"{1}\"
               then
                 echo \"[成功] {2} 已下载\"
               else
