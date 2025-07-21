@@ -197,7 +197,6 @@ jobs:
               EOF
               ;;
             neoforge)
-              # 安装器已经生成 run.sh，我们把它拷出来并替换 jar 参数
               cat > start.sh <<'EOF'
               #!/bin/sh
               chmod +x run.sh
