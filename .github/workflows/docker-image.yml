@@ -167,7 +167,7 @@ jobs:
             # 文件名
             CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
-          done > download-list.txt
+          done < <(echo "${MOD_LIST}" | tr ',' '\n') | grep -v '^$' > download-list.txt
           # 打印总数量
           TOTAL=$(wc -l < download-list.txt)
           echo "===== 共有 ${TOTAL} 个模组需要下载 ====="
