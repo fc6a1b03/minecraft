@@ -76,86 +76,56 @@ jobs:
       # 下载模组整合包并解析清单
       - name: Download and Parse Manifest
         id: manifest
-        run: |
-          # 翻页参数
-          PAGE_INDEX=0
-          MAX_PAGES=10
-          FOUND_FILE=""
-          PROJECT_ID="${{ inputs.PROJECT_ID }}"
-          MOD_LOADERS="${{ inputs.MOD_LOADERS }}"
-          CURSEFORGE_API="${{ env.CURSEFORGE_API }}"
-          SERVER_VERSION="${{ inputs.SERVER_VERSION }}"
-          while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
-            API_URL="${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageInde=$PAGE_INDEX&pageSize=50&sort=dateCreated&sortDescending=true"
-            FILES_JSON=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "${API_URL}")
-            HTTP_STATUS=$(echo "$FILES_JSON" | grep 'HTTP_STATUS:' | sed 's/HTTP_STATUS://')
-            FILES_JSON=$(echo "$FILES_JSON" | sed '/HTTP_STATUS:/d')
-            if [[ "$HTTP_STATUS" != "200" ]]; then
-              ((PAGE_INDEX++))
-              continue
-            fi
-            if ! jq -e . >/dev/null 2>&1 <<<"$FILES_JSON"; then
-              ((PAGE_INDEX++))
-              continue
-            fi
-            FOUND_FILE=$(echo "$FILES_JSON" | jq -r \
-            --arg ver "$SERVER_VERSION" \
-            --arg loader "$MOD_LOADERS" '
-            .data? // [] |
-            map(select(
-            .gameVersions != null and
-            (
-            ([.gameVersions] | flatten | map(select(. != null) | ascii_downcase) | any(. == ($ver | ascii_downcase)))
-            and
-            ([.gameVersions] | flatten | map(select(. != null) | ascii_downcase) | any(. == ($loader | ascii_downcase)))
-            )
-            )) |
-            if length > 0 then .[0] | {id, fileName} else null end
-            ')
-            if [[ "$(echo "$FOUND_FILE" | jq -r '.id')" != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
-            break
-            fi
-            ((PAGE_INDEX++))
-          done
-          if [[ -z "$FOUND_FILE" ]] || [[ "$(echo "$FOUND_FILE" | jq -r '.id')" == "null" ]]; then
-            echo "::error::找不到匹配版本 $SERVER_VERSION/$MOD_LOADERS 的modpack文件"
-            exit 1
-          fi
-          FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
-          FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
-          FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
-          DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$FILE_NAME_ENCODE"
-          curl -k -sS -o modpack.zip "$DOWNLOAD_URL" || {
-            echo "::error::下载modpack文件失败"
-            exit 1
-          }
-          unzip -j modpack.zip manifest.json -d . || {
-            unzip -l modpack.zip || true
-            echo "::error::解压manifest.json失败"
-            exit 1
-          }
-          MANIFEST_JSON=$(jq -c . manifest.json)
-          # 规范化镜像名称
-          MODPACK_NAME=$(echo "$MANIFEST_JSON" | jq -r '.name')
-          # 转换规则：小写化、空格转横线、移除特殊字符 
-          NORMALIZED_NAME=$(echo "$MODPACK_NAME" | 
-            tr '[:upper:]' '[:lower:]' |
-            tr ' ' '-' |
-            sed 's/[^a-z0-9_-]//g')
-          MODPACK_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.version')
-          echo "NORMALIZED_NAME=$NORMALIZED_NAME" >> $GITHUB_ENV
-          echo "MODPACK_VERSION=$MODPACK_VERSION" >> $GITHUB_ENV
-          echo "MINECRAFT_VERSION=$(jq -r '.minecraft.version' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
-          # 模组列表信息
-          MOD_LIST=$(jq -r '
-            .files // [] |
-            map(select(.projectID? and .fileID?)) |
-            map("\(.projectID):\(.fileID)") |
-            join(",")
-          ' <<< "$MANIFEST_JSON")
-          echo "MOD_LIST=$MOD_LIST" >> $GITHUB_ENV
-          echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
-          echo "成功下载版本$SERVER_VERSION的modpack：$FILE_NAME"
+        uses: actions/github-script@v7
+        env:
+          PROJECT_ID: ${{ inputs.PROJECT_ID }}
+          MOD_LOADERS: ${{ inputs.MOD_LOADERS }}
+          SERVER_VERSION: ${{ inputs.SERVER_VERSION }}
+        with:
+          script: |
+            const { PROJECT_ID, MOD_LOADERS, SERVER_VERSION } = process.env;
+            const cf = process.env.CURSEFORGE_API;
+            const dl = process.env.CURSEFORGE_DOWNLOAD_API;
+            // 封装分页请求
+            const files = await (async () => {
+              let page = 0;
+              while (page < 10) {
+                const { data } = await github.request(
+                  `${cf}/mods/${PROJECT_ID}/files?pageIndex=${page}&pageSize=50&sort=dateCreated&sortDescending=true`,
+                  { headers: { 'x-api-key': process.env.CURSEFORGE_API } }
+                );
+                const hit = data.find(f =>
+                  f.gameVersions?.some(v => v.toLowerCase() === SERVER_VERSION.toLowerCase()) &&
+                  f.gameVersions?.some(v => v.toLowerCase() === MOD_LOADERS.toLowerCase())
+                );
+                if (hit) return hit;
+                page++;
+              }
+              core.setFailed(`找不到匹配版本 ${SERVER_VERSION}/${MOD_LOADERS} 的modpack文件`);
+            })();
+            // 下载整合包
+            const fileId = files.id.toString();
+            const url = `${dl}/${fileId.slice(0,4)}/${fileId.slice(4,7)}/${encodeURIComponent(files.fileName)}`;
+            await exec.exec('curl', ['-k', '-sS', '-o', 'modpack.zip', url]);
+            // 取出 manifest.json
+            await exec.exec('unzip', ['-j', 'modpack.zip', 'manifest.json']);
+            // 解析字段
+            const manifest = JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'));
+            const normalized = manifest.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
+            const modList = manifest.files?.map(f => `${f.projectID}:${f.fileID}`).join(',') || '';
+            const loaderVer = (manifest.minecraft.modLoaders[0]?.id || '').split('-')[1];
+            // 输出到 GITHUB_ENV
+            require('fs').appendFileSync(
+              process.env.GITHUB_ENV, 
+              [
+                `NORMALIZED_NAME=${normalized}`,
+                `MODPACK_VERSION=${manifest.version}`,
+                `MINECRAFT_VERSION=${manifest.minecraft.version}`,
+                `MOD_LIST=${modList}`,
+                `MOD_LOADER_VERSION=${loaderVer}`
+              ].join('\n')
+            );
+            core.info(`成功下载版本 ${SERVER_VERSION} 的 modpack：${files.fileName}`);
 
       - name: Download Mod Loader & Fabric API
         run: |
