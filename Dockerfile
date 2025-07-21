@@ -3,9 +3,9 @@ WORKDIR server
 Expose 25565
 
 RUN rm -rf server.properties eula.txt logs/*
+COPY public /public/
+COPY server-core.jar .
 COPY server.properties .
-COPY public public
-COPY public public
 RUN echo "eula=true" > eula.txt
 
 # JVM针对2C6G机器
