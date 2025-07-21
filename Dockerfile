@@ -3,8 +3,9 @@ WORKDIR server
 Expose 25565
 
 COPY . .
-COPY public /public/
+RUN mv public /
 RUN echo "eula=true" > eula.txt
+RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # JVM针对2C6G机器
 ENV JVM_OPTS="\
@@ -46,7 +47,5 @@ ENV JVM_OPTS="\
 -Djava.net.preferIPv4Stack=true \
 -XX:+UseStringDeduplication" \
     TZ=Asia/Shanghai
-RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
-    && echo $TZ > /etc/timezone
 
-ENTRYPOINT ["sh", "-c", "mkdir -p mods && cp -r /public/* mods/ && java -jar ${JVM_OPTS} server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
+ENTRYPOINT ["sh", "-c", "mkdir -p mods && cp -r /public/* mods/ && ./start.sh"]

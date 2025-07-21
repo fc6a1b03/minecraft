@@ -1,8 +1,6 @@
-public
-logs/**/*.log
-
-*.sh
+temp
 *.bat
 *.log
 *.txt
 *.properties
+logs/**/*.log

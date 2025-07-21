@@ -125,7 +125,6 @@ jobs:
       - name: Download Mod Loader
         run: |
           dl() { curl -k -sSL "$1" -o "$2"; }
-          run() { java -jar "$1" --installServer; rm -f $1 *.txt *.log run.*; mv "$2" server-core.jar; java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"; }
           case "${{ inputs.MOD_LOADERS }}" in
             fabric)
               dl "$FABRIC_META/loader/$MINECRAFT_VERSION/$(curl -k -s $FABRIC_META/loader | jq -r '.[0].version')/$(curl -k -s $FABRIC_META/installer | jq -r '.[0].version')/server/jar" server-core.jar
@@ -134,14 +133,13 @@ jobs:
             forge)
               fv=$(curl -k -s "$FORGE_FILE" | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v+"-latest"]')
               dl "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$fv/forge-$MINECRAFT_VERSION-$fv-installer.jar" forge.jar
-              run forge.jar *.jar
+              java -jar forge.jar --installServer && rm -f forge.jar && mv forge-*-universal.jar server-core.jar && java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"
               ;;
             neoforge)
               nv=$(curl -k -s "$NEO_FORGED_VERSION" | jq -r --arg mc "${MINECRAFT_VERSION#1.}" '.versions | map(select(startswith($mc+"."))) | last // empty')
-              [[ -z $nv ]] && { echo "::error::未找到支持 MC $MINECRAFT_VERSION 的 NeoForge"; exit 1; }
               dl "$NEO_FORGED_FILE/$nv/neoforge-$nv-installer.jar" neo.jar
-              run neo.jar *.jar
-            ;;
+              java -jar neo.jar --installServer && rm -f neo.jar && chmod +x run.sh && ./run.sh nogui --universe "$TEMP_CACHE_CATALOG"
+              ;;
           esac
 
       # 并发下载所有模组文件
@@ -181,6 +179,33 @@ jobs:
             fi
             ' :::: download-list.txt
           "
+
+      # 生成启动脚本
+      - name: Build start script
+        run: |
+          case "${{ inputs.MOD_LOADERS }}" in
+            fabric)
+              cat > start.sh <<'EOF'
+              #!/bin/sh
+              exec java ${JVM_OPTS} -jar server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/
+              EOF
+              ;;
+            forge)
+              cat > start.sh <<'EOF'
+              #!/bin/sh
+              exec java ${JVM_OPTS} -jar server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/
+              EOF
+              ;;
+            neoforge)
+              # 安装器已经生成 run.sh，我们把它拷出来并替换 jar 参数
+              cat > start.sh <<'EOF'
+              #!/bin/sh
+              chmod +x run.sh
+              exec bash -c "JVM_OPTS=\"$JVM_OPTS\" ./run.sh --nogui --eraseCache --forceUpgrade --universe /data/"
+              EOF
+              ;;
+            esac
+            chmod +x start.sh
 
       # 构建并推送多架构镜像
       - name: Build and Push Docker Image
