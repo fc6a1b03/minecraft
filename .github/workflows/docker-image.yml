@@ -257,7 +257,7 @@ jobs:
                 echo \"[成功] {2} 已下载\"
               else
                 echo \"[失败] {2} 下载失败 (退出码: \$?)\" >&2
-                exit 1  # 标记任务失败
+                exit 1
               fi
             ' :::: download-list.txt
           "
