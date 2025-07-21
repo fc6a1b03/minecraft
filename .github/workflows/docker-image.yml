@@ -120,7 +120,7 @@ jobs:
           FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
           FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
-          DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
+          DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$(printf '%04d' "${FILE_ID:0:4}")/$(printf '%03d' "${FILE_ID:4:3}")/$FILE_NAME_ENCODE"
           curl -k -sS -o modpack.zip "$DOWNLOAD_URL" || {
             echo "::error::下载modpack文件失败"
             exit 1
