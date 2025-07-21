@@ -150,11 +150,15 @@ jobs:
         run: |
           echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
             JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files")
-            CATEGORIES=$(echo "$JSON" | jq -r '.data.categories[].slug')
+            CLIENT_ONLY=$(echo "$FILE_JSON" | jq -r '
+            .data.gameVersions
+            | map(select(. == "Client"))
+            | length == 1 and (map(select(. == "Server")) | length == 0)
+            ')
             # 客户端模组过滤
-            if echo "$CATEGORIES" | grep -Eiq 'client|ui|visual|cosmetic|tooltip|button'; then
-              echo "[跳过] PID=${PID} 为客户端模组"
-              continue
+            if [[ "$CLIENT_ONLY" == "true" ]]; then
+            echo "[跳过] 纯客户端模组：$FILE_NAME"
+            continue
             fi
             FILE_JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files/${FID}")
             FILE_ID=$(echo "$FILE_JSON" | jq -r '.data.id')
