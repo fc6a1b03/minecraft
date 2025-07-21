@@ -86,19 +86,17 @@ jobs:
             const { PROJECT_ID, MOD_LOADERS, SERVER_VERSION, CURSEFORGE_API, CURSEFORGE_DOWNLOAD_API } = process.env;
             // 封装分页请求
             const files = await (async () => {
-              let page = 0;
-              while (page < 10) {
-                const { data } = await github.request(
-                  `${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageIndex=${page}&pageSize=50&sort=dateCreated&sortDescending=true`
-                );
+              for (let page = 0; page < 10; page++) {
+                const res = await fetch(`${process.env.CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageIndex=${page}&pageSize=50&sort=dateCreated&sortDescending=true`);
+                if (!res.ok) continue;
+                const { data } = await res.json();
                 const hit = data.find(f =>
                   f.gameVersions?.some(v => v.toLowerCase() === SERVER_VERSION.toLowerCase()) &&
                   f.gameVersions?.some(v => v.toLowerCase() === MOD_LOADERS.toLowerCase())
                 );
                 if (hit) return hit;
-                page++;
               }
-              core.setFailed(`找不到匹配版本 ${SERVER_VERSION}/${MOD_LOADERS} 的modpack文件`);
+              core.setFailed(`找不到匹配版本 ${SERVER_VERSION}/${MOD_LOADERS} 的 modpack 文件`);
             })();
             // 下载整合包
             const fileId = files.id.toString();
