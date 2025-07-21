@@ -166,7 +166,8 @@ jobs:
             CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
           done < <(echo "${MOD_LIST}" | tr ',' '\n') > download-list.txt
-          echo "===== 共有 $(wc -l < download-list.txt) 个模组需要下载 ====="
+          TOTAL=$(wc -l < download-list.txt)
+          echo "===== 共有 ${TOTAL} 个模组需要下载 ====="
           [[ $TOTAL -eq 0 ]] && { echo "无文件可下载，结束"; exit 0; }
           sudo bash -c "
             parallel --will-cite -j\$(nproc) --colsep '\t' '
