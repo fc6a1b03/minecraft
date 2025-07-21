@@ -48,6 +48,15 @@ jobs:
             exit 1
           fi
 
+      # 登录到容器仓库
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        id: docker-login
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Init Env
         run: |
           sudo mkdir -p ${{ env.JAR_CATALOG }}
@@ -227,27 +236,16 @@ jobs:
       - name: Download Mods in Parallel
         run: |
           echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            echo "DEBUG PID=$PID, FID=$FID" >&2
             FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
-            echo "DEBUG RESPONSE=$FOUND_FILE" >&2
-            FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
-            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
-            echo "DEBUG FILE_ID=$FILE_ID, FILE_NAME=$FILE_NAME" >&2
+            FILE_ID=$(echo "$FOUND_FILE" | jq -r '.data.id')
+            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.data.fileName' | xargs)
             FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
             DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-            echo "$DOWNLOAD_URL"
-          done
-#          echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-#            FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
-#            FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
-#            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName' | xargs)
-#            FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
-#            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-#            printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
-#          done > download-list.txt
-#          sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -sS -fL \
-#            -H 'User-Agent: Mozilla/5.0' -H 'Referer: https://curseforge.com/' \
-#            -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
+            printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
+          done > download-list.txt
+          sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -sS -fL \
+            -H 'User-Agent: Mozilla/5.0' -H 'Referer: https://curseforge.com/' \
+            -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
 
       # 构建并推送多架构镜像
       - name: Build and Push Docker Image
