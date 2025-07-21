@@ -149,7 +149,7 @@ jobs:
       - name: Download Mods in Parallel
         run: |
           echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}")
+            JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files")
             CATEGORIES=$(echo "$JSON" | jq -r '.data.categories[].slug')
             # 客户端模组过滤
             if echo "$CATEGORIES" | grep -Eiq 'client|ui|visual|cosmetic|tooltip|button'; then
