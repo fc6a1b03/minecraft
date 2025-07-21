@@ -120,7 +120,7 @@ jobs:
           FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
           FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
-          DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$(printf '%d' "10#${FILE_ID:0:4}")/$(printf '%d' "10#${FILE_ID:4:3}")/$FILE_NAME_ENCODE"
+          DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$FILE_NAME_ENCODE"
           curl -k -sS -o modpack.zip "$DOWNLOAD_URL" || {
             echo "::error::下载modpack文件失败"
             exit 1
@@ -244,7 +244,7 @@ jobs:
             # 文件名 URL-encode
             SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
             # 下载地址
-            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$(printf '%d' "10#${FILE_ID:0:4}")/$(printf '%d' "10#${FILE_ID:4:3}")/${SAFE_FILE_NAME}"
+            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$SAFE_FILE_NAME"
             # 文件名
             CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
