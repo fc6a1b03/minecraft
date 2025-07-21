@@ -34,9 +34,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
+      - name: Set Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Set up QEMU
+      - name: Set QEMU
         uses: docker/setup-qemu-action@v3
 
       # 验证Modpack是否存在
@@ -227,18 +227,27 @@ jobs:
       - name: Download Mods in Parallel
         run: |
           echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
+            echo "DEBUG PID=$PID, FID=$FID" >&2
             FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
+            echo "DEBUG RESPONSE=$FOUND_FILE" >&2
             FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
-            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName' | xargs)
+            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
+            echo "DEBUG FILE_ID=$FILE_ID, FILE_NAME=$FILE_NAME" >&2
             FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
             DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-            # printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
-            # done > download-list.txt
             echo "$DOWNLOAD_URL"
           done
-          # sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -sS -fL \
-            -H 'User-Agent: Mozilla/5.0' -H 'Referer: https://curseforge.com/' \
-            -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
+#          echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
+#            FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
+#            FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
+#            FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName' | xargs)
+#            FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
+#            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
+#            printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
+#          done > download-list.txt
+#          sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -sS -fL \
+#            -H 'User-Agent: Mozilla/5.0' -H 'Referer: https://curseforge.com/' \
+#            -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
 
       # 构建并推送多架构镜像
       - name: Build and Push Docker Image
