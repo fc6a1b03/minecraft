@@ -168,7 +168,7 @@ jobs:
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
           done < <(echo "${MOD_LIST}" | tr ',' '\n') > download-list.txt
           TOTAL=$(wc -l < download-list.txt)
-          echo "===== 最终 ${TOTAL} 个模组待下载 ====="
+          echo "===== 共 ${TOTAL} 个模组待下载 ====="
           [[ $TOTAL -eq 0 ]] && { echo "无文件可下载，结束"; exit 0; }
           sudo bash -c "
             parallel --will-cite -j\$(nproc) --colsep '\t' '
