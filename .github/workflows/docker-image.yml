@@ -83,16 +83,13 @@ jobs:
           SERVER_VERSION: ${{ inputs.SERVER_VERSION }}
         with:
           script: |
-            const { PROJECT_ID, MOD_LOADERS, SERVER_VERSION } = process.env;
-            const cf = process.env.CURSEFORGE_API;
-            const dl = process.env.CURSEFORGE_DOWNLOAD_API;
+            const { PROJECT_ID, MOD_LOADERS, SERVER_VERSION, CURSEFORGE_API, CURSEFORGE_DOWNLOAD_API } = process.env;
             // 封装分页请求
             const files = await (async () => {
               let page = 0;
               while (page < 10) {
                 const { data } = await github.request(
-                  `${cf}/mods/${PROJECT_ID}/files?pageIndex=${page}&pageSize=50&sort=dateCreated&sortDescending=true`,
-                  { headers: { 'x-api-key': process.env.CURSEFORGE_API } }
+                  `${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageIndex=${page}&pageSize=50&sort=dateCreated&sortDescending=true`
                 );
                 const hit = data.find(f =>
                   f.gameVersions?.some(v => v.toLowerCase() === SERVER_VERSION.toLowerCase()) &&
@@ -105,8 +102,7 @@ jobs:
             })();
             // 下载整合包
             const fileId = files.id.toString();
-            const url = `${dl}/${fileId.slice(0,4)}/${fileId.slice(4,7)}/${encodeURIComponent(files.fileName)}`;
-            await exec.exec('curl', ['-k', '-sS', '-o', 'modpack.zip', url]);
+            await exec.exec('curl', ['-k', '-sS', '-o', 'modpack.zip', `${CURSEFORGE_DOWNLOAD_API}/${fileId.slice(0,4)}/${fileId.slice(4,7)}/${encodeURIComponent(files.fileName)}`]);
             // 取出 manifest.json
             await exec.exec('unzip', ['-j', 'modpack.zip', 'manifest.json']);
             // 解析字段
