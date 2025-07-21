@@ -3,91 +3,224 @@ name: Minecraft Docker Image CI
 on:
   workflow_dispatch:
     inputs:
-      PROJECT_ID: { description: 'CurseForge项目ID', required: true, type: string }
-      SERVER_VERSION: { description: 'Minecraft服务端版本', required: true, type: string }
-      MOD_LOADERS: { description: 'Minecraft模组加载器', required: true, default: 'fabric', type: string }
-      JDK_VERSION: { description: 'Java版本', required: true, default: '21', type: string }
-
-env:
-  REGISTRY: ghcr.io
-  JAR_CATALOG: ${{ github.workspace }}/public
-  CURSEFORGE_API: https://www.curseforge.com/api/v1
-  FABRIC_META: https://meta.fabricmc.net/v2/versions
-  TEMP_CACHE_CATALOG: ${{ github.workspace }}/temp/cache
-  CURSEFORGE_DOWNLOAD_API: https://mediafilez.forgecdn.net/files
-  FORGE_DOWNLOAD: https://maven.minecraftforge.net/net/minecraftforge/forge
-  FABRIC_API_BASE_URL: https://api.github.com/repos/FabricMC/fabric/releases?per_page=100
-  PROMOTION_FILE: https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
+      PROJECT_ID:
+        description: 'CurseForge项目ID'
+        required: true
+        type: string
+      SERVER_VERSION:
+        description: 'Minecraft服务端版本'
+        required: true
+        type: string
+      MOD_LOADERS:
+        description: 'Minecraft模组加载器 (fabric/forge)'
+        required: true
+        default: 'fabric'
+        type: string
+      JDK_VERSION:
+        description: 'Java版本'
+        required: true
+        default: '21'
+        type: string
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      JAR_CATALOG: ${{ github.workspace }}/public
+      CURSEFORGE_API: https://www.curseforge.com/api/v1
+      FABRIC_META: https://meta.fabricmc.net/v2/versions
+      TEMP_CACHE_CATALOG: ${{ github.workspace }}/temp/cache/
+      CURSEFORGE_DOWNLOAD_API: https://mediafilez.forgecdn.net/files
+      FORGE_DOWNLOAD: https://maven.minecraftforge.net/net/minecraftforge/forge
+      FABRIC_API_BASE_URL: https://api.github.com/repos/FabricMC/fabric/releases?per_page=100
+      PROMOTION_FILE: https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
+
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/login-action@v3
+      - name: Set Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Set QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # 验证模组整合包是否存在
+      - name: Validate Modpack
+        run: |
+          RESPONSE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files")
+          if [ $(echo "$RESPONSE" | jq -r '.data.id') == null ]; then
+            echo "::error::Invalid Project ID"
+            exit 1
+          fi
+
+      # 登录到容器仓库
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        id: docker-login
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup & Download
+      # 初始化环境
+      - name: Init Env
         run: |
-          set -e
-          mkdir -p $JAR_CATALOG $TEMP_CACHE_CATALOG
-          sudo apt-get -qq update
-          # 验证并下载modpack
-          curl -k -s "$CURSEFORGE_API/mods/${{ inputs.PROJECT_ID }}/files" | jq -e '.data[0].id' || exit 1
-          FILES=$(curl -k -s "$CURSEFORGE_API/mods/${{ inputs.PROJECT_ID }}/files?pageSize=50")
-          FILE=$(echo "$FILES" | jq -r --arg v "${{ inputs.SERVER_VERSION }}" --arg l "${{ inputs.MOD_LOADERS }}" '
-            .data[] | select(.gameVersions | map(ascii_downcase) | any(. == ($v | ascii_downcase)) and any(. == ($l | ascii_downcase))) | {id, fileName} | first(. // empty)')
-          [ -z "$FILE" ] && exit 1
-          curl -k -sSLo modpack.zip "$CURSEFORGE_DOWNLOAD_API/$(printf "%04d%03d" $(echo $FILE | jq -r '.id' | cut -c1-4) $(echo $FILE | jq -r '.id' | cut -c5-7))/$(echo $FILE | jq -r '.fileName' | jq -sRr '@uri')"
-          unzip -j modpack.zip manifest.json
-          # 设置环境变量
-          echo "NORMALIZED_NAME=$(jq -r '.name' manifest.json | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-_')" >> $GITHUB_ENV
-          echo "MODPACK_VERSION=$(jq -r '.version' manifest.json)" >> $GITHUB_ENV
-          echo "MINECRAFT_VERSION=$(jq -r '.minecraft.version' manifest.json)" >> $GITHUB_ENV
-          echo "MOD_LIST=$(jq -r '.files[] | "\(.projectID):\(.fileID)"' manifest.json | paste -sd ',')" >> $GITHUB_ENV
-          echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' manifest.json | cut -d- -f2)" >> $GITHUB_ENV
-
-      - uses: actions/setup-java@v4
+          sudo mkdir -p ${{ env.JAR_CATALOG }}
+          sudo mkdir -p ${{ env.TEMP_CACHE_CATALOG }}
+          sudo apt-get -qq -y update
+      - name: Set JDK
+        uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: ${{ inputs.JDK_VERSION }}
+
+      # 下载模组整合包并解析清单
+      - name: Download and Parse Manifest
+        id: manifest
+        run: |
+          # 翻页参数
+          PAGE_INDEX=0
+          MAX_PAGES=10
+          FOUND_FILE=""
+          PROJECT_ID="${{ inputs.PROJECT_ID }}"
+          MOD_LOADERS="${{ inputs.MOD_LOADERS }}"
+          CURSEFORGE_API="${{ env.CURSEFORGE_API }}"
+          SERVER_VERSION="${{ inputs.SERVER_VERSION }}"
+          while [[ $PAGE_INDEX -lt $MAX_PAGES ]]; do
+            API_URL="${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageInde=$PAGE_INDEX&pageSize=50&sort=dateCreated&sortDescending=true"
+            FILES_JSON=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "${API_URL}")
+            HTTP_STATUS=$(echo "$FILES_JSON" | grep 'HTTP_STATUS:' | sed 's/HTTP_STATUS://')
+            FILES_JSON=$(echo "$FILES_JSON" | sed '/HTTP_STATUS:/d')
+            if [[ "$HTTP_STATUS" != "200" ]]; then
+              ((PAGE_INDEX++))
+              continue
+            fi
+            if ! jq -e . >/dev/null 2>&1 <<<"$FILES_JSON"; then
+              ((PAGE_INDEX++))
+              continue
+            fi
+            FOUND_FILE=$(echo "$FILES_JSON" | jq -r \
+            --arg ver "$SERVER_VERSION" \
+            --arg loader "$MOD_LOADERS" '
+            .data? // [] |
+            map(select(
+            .gameVersions != null and
+            (
+            ([.gameVersions] | flatten | map(select(. != null) | ascii_downcase) | any(. == ($ver | ascii_downcase)))
+            and
+            ([.gameVersions] | flatten | map(select(. != null) | ascii_downcase) | any(. == ($loader | ascii_downcase)))
+            )
+            )) |
+            if length > 0 then .[0] | {id, fileName} else null end
+            ')
+            if [[ "$(echo "$FOUND_FILE" | jq -r '.id')" != "null" ]] && [[ -n "$FOUND_FILE" ]]; then
+            break
+            fi
+            ((PAGE_INDEX++))
+          done
+          if [[ -z "$FOUND_FILE" ]] || [[ "$(echo "$FOUND_FILE" | jq -r '.id')" == "null" ]]; then
+            echo "::error::找不到匹配版本 $SERVER_VERSION/$MOD_LOADERS 的modpack文件"
+            exit 1
+          fi
+          FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
+          FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
+          FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
+          DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$FILE_NAME_ENCODE"
+          curl -k -sS -o modpack.zip "$DOWNLOAD_URL" || {
+            echo "::error::下载modpack文件失败"
+            exit 1
+          }
+          unzip -j modpack.zip manifest.json -d . || {
+            unzip -l modpack.zip || true
+            echo "::error::解压manifest.json失败"
+            exit 1
+          }
+          MANIFEST_JSON=$(jq -c . manifest.json)
+          # 规范化镜像名称
+          MODPACK_NAME=$(echo "$MANIFEST_JSON" | jq -r '.name')
+          # 转换规则：小写化、空格转横线、移除特殊字符 
+          NORMALIZED_NAME=$(echo "$MODPACK_NAME" | 
+            tr '[:upper:]' '[:lower:]' |
+            tr ' ' '-' |
+            sed 's/[^a-z0-9_-]//g')
+          MODPACK_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.version')
+          echo "NORMALIZED_NAME=$NORMALIZED_NAME" >> $GITHUB_ENV
+          echo "MODPACK_VERSION=$MODPACK_VERSION" >> $GITHUB_ENV
+          echo "MINECRAFT_VERSION=$(jq -r '.minecraft.version' <<< "$MANIFEST_JSON")" >> $GITHUB_ENV
+          # 模组列表信息
+          MOD_LIST=$(jq -r '
+            .files // [] |
+            map(select(.projectID? and .fileID?)) |
+            map("\(.projectID):\(.fileID)") |
+            join(",")
+          ' <<< "$MANIFEST_JSON")
+          echo "MOD_LIST=$MOD_LIST" >> $GITHUB_ENV
+          echo "MOD_LOADER_VERSION=$(jq -r '.minecraft.modLoaders[0].id' <<< "$MANIFEST_JSON" | cut -d- -f2)" >> $GITHUB_ENV
+          echo "成功下载版本$SERVER_VERSION的modpack：$FILE_NAME"
 
       - name: Download Mod Loader & Fabric API
         run: |
           case "${{ inputs.MOD_LOADERS }}" in
             fabric)
-              LOADER=$(curl -k -s $FABRIC_META/loader | jq -r '.[0].version')
-              INSTALLER=$(curl -k -s $FABRIC_META/installer | jq -r '.[0].version')
-              curl -k -sSL "$FABRIC_META/loader/$MINECRAFT_VERSION/$LOADER/$INSTALLER/server/jar" -o server-core.jar
+              # fabric-core
+              LOADER=$(curl -s $FABRIC_META/loader | jq -r '.[0].version')
+              INSTALLER=$(curl -s $FABRIC_META/installer | jq -r '.[0].version')
+              curl -sSL "$FABRIC_META/loader/$MINECRAFT_VERSION/$LOADER/$INSTALLER/server/jar" -o server-core.jar
               java -jar server-core.jar --nogui --universe $TEMP_CACHE_CATALOG
-              API_URL=$(curl -k -s "$FABRIC_API_BASE_URL" | jq -r --arg v "$MINECRAFT_VERSION" '[.[]|select(.target_commitish==$v)][0].assets[0].browser_download_url')
-              curl -k -sSL "$API_URL" -o $JAR_CATALOG/fabric-api.jar
+              # fabric-api
+              API_URL=$(curl -s "$FABRIC_API_BASE_URL" | jq -r --arg v "$MINECRAFT_VERSION" '[.[]|select(.target_commitish==$v)][0].assets[0].browser_download_url')
+              curl -sSL "$API_URL" -o $JAR_CATALOG/fabric-api.jar
               ;;
             forge)
-              FORGE_VERSION=$(curl -k -s $PROMOTION_FILE | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v + "-latest"]')
-              curl -k -sSL "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$FORGE_VERSION/forge-$MINECRAFT_VERSION-$FORGE_VERSION-installer.jar" -o forge-installer.jar
+              # forge-core
+              FORGE_VERSION=$(curl -s $PROMOTION_FILE | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v + "-latest"]')
+              curl -sSL "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$FORGE_VERSION/forge-$MINECRAFT_VERSION-$FORGE_VERSION-installer.jar" -o forge-installer.jar
               java -jar forge-installer.jar --installServer
               mv forge-$MINECRAFT_VERSION-$FORGE_VERSION-universal.jar server-core.jar && rm -rf forge-installer.jar *.txt *.log run.*
               java -jar server-core.jar --nogui --universe $TEMP_CACHE_CATALOG
               ;;
           esac
 
-      - name: Download Mods
+      # 并发下载所有模组文件
+      - name: Download Mods in Parallel
         run: |
-          echo "$MOD_LIST" | tr ',' '\n' | xargs -P$(nproc) -I {} sh -c '
-            IFS=":" read pid fid <<< "{}"
-            json=$(curl -k -s "$CURSEFORGE_API/mods/$pid/files/$fid")
-            name=$(echo "$json" | jq -r '.data.fileName')
-            url="$CURSEFORGE_DOWNLOAD_API/$(printf "%04d%03d" $(echo $json | jq -r '.data.id' | cut -c1-4) $(echo $json | jq -r '.data.id' | cut -c5-7))/$(echo "$name" | jq -sRr "@uri")"
-            curl -k -sSL "$url" -o "$JAR_CATALOG/$name" || exit 1
-          '
+          # 生成下载清单
+          echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
+            JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files/${FID}")
+            FILE_ID=$(echo "$JSON" | jq -r '.data.id')
+            FILE_NAME=$(echo "$JSON" | jq -r '.data.fileName')
+            # 文件名 URL-encode
+            SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
+            # 下载地址
+            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$SAFE_FILE_NAME"
+            # 文件名
+            CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
+            printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
+          done > download-list.txt
+          # 并发下载
+          sudo bash -c "
+            parallel --will-cite -j\$(nproc) --colsep '\t' '
+            URL={1}
+            CLEAN_NAME={2}
+            echo \"[下载链接] \$URL\"
+            OUTPUT_PATH=\"${JAR_CATALOG}/\$CLEAN_NAME\"
+            if curl -k -sS -fL -o \"\$OUTPUT_PATH\" \
+                  -H \"User-Agent: Mozilla/5.0\" \
+                  -H \"Referer: https://curseforge.com/\" \
+                  --globoff \
+                  \"\$URL\"
+            then
+              echo \"[成功] \$CLEAN_NAME 已下载\"
+            else
+              STATUS=\$?
+              echo \"[失败] \$CLEAN_NAME 下载失败 (退出码: \$STATUS)\" >&2
+              exit 1
+            fi
+            ' :::: download-list.txt
+          "
 
-      - uses: docker/build-push-action@v6
+      # 构建并推送多架构镜像
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
