@@ -121,7 +121,7 @@ jobs:
           FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
           FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
           DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-          curl -k -fL -o modpack.zip "$DOWNLOAD_URL" || {
+          curl -k -sS -o modpack.zip "$DOWNLOAD_URL" || {
             echo "::error::下载modpack文件失败"
             exit 1
           }
@@ -248,7 +248,7 @@ jobs:
           sudo bash -c "
             parallel --will-cite -j$(nproc) --colsep '\t' '
               echo \"[下载链接] {1}\"
-              if curl -k -v -sS -fL -o \"${{ env.JAR_CATALOG }}/{2}\" \
+              if curl -k -sS -o \"${{ env.JAR_CATALOG }}/{2}\" \
                 -H \"User-Agent: Mozilla/5.0\" \
                 -H \"Referer: https://curseforge.com/\" \
                 --noproxy \"*\" \
