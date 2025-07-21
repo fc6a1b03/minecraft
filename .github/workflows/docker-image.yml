@@ -245,13 +245,14 @@ jobs:
             DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$FILE_NAME"
           done > download-list.txt
-          # 并发下载
+          # 启动并发下载
           sudo bash -c "
             parallel --will-cite -j$(nproc) --colsep '\t' '
               echo \"[下载链接] {1}\"
-              if curl -sS -fL -o \"${{ env.JAR_CATALOG }}/{2}\" \
+              if curl -k -sS -fL -o \"${{ env.JAR_CATALOG }}/{2}\" \
                 -H \"User-Agent: Mozilla/5.0\" \
                 -H \"Referer: https://curseforge.com/\" \
+                --noproxy \"*\" \
                 \"{1}\" >/dev/null 2>&1;
               then
                 echo \"[成功] {2} 已下载\"
