@@ -161,17 +161,12 @@ jobs:
         run: |
           case "${{ inputs.MOD_LOADERS }}" in
             fabric)
-              # fabric-core
               LOADER=$(curl -s $FABRIC_META/loader | jq -r '.[0].version')
               INSTALLER=$(curl -s $FABRIC_META/installer | jq -r '.[0].version')
               curl -sSL "$FABRIC_META/loader/$MINECRAFT_VERSION/$LOADER/$INSTALLER/server/jar" -o server-core.jar
               java -jar server-core.jar --nogui --universe $TEMP_CACHE_CATALOG
-              # fabric-api
-              API_URL=$(curl -s "$FABRIC_API_BASE_URL" | jq -r --arg v "$MINECRAFT_VERSION" '[.[]|select(.target_commitish==$v)][0].assets[0].browser_download_url')
-              curl -sSL "$API_URL" -o $JAR_CATALOG/fabric-api.jar
               ;;
             forge)
-              # forge-core
               FORGE_VERSION=$(curl -s $PROMOTION_FILE | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v + "-latest"]')
               curl -sSL "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$FORGE_VERSION/forge-$MINECRAFT_VERSION-$FORGE_VERSION-installer.jar" -o forge-installer.jar
               java -jar forge-installer.jar --installServer
