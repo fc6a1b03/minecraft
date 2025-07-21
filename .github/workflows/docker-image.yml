@@ -122,6 +122,7 @@ jobs:
             );
             core.info(`成功下载版本 ${SERVER_VERSION} 的 modpack：${files.fileName}`);
 
+      # 下载模组加载器
       - name: Download Mod Loader
         run: |
           dl() { curl -k -sSL "$1" -o "$2"; }
@@ -133,7 +134,7 @@ jobs:
             forge)
               fv=$(curl -k -s "$FORGE_FILE" | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v+"-latest"]')
               dl "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$fv/forge-$MINECRAFT_VERSION-$fv-installer.jar" forge.jar
-              java -jar forge.jar --installServer && rm -f forge.jar && mv forge-*-universal.jar server-core.jar && java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"
+              java -jar forge.jar --installServer && rm -f forge.jar && mv *.jar server-core.jar && java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"
               ;;
             neoforge)
               nv=$(curl -k -s "$NEO_FORGED_VERSION" | jq -r --arg mc "${MINECRAFT_VERSION#1.}" '.versions | map(select(startswith($mc+"."))) | last // empty')
@@ -206,4 +207,6 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            JDK_VERSION=${{ inputs.JDK_VERSION }}
           tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.NORMALIZED_NAME }}:${{ env.MODPACK_VERSION }}

@@ -1,4 +1,5 @@
-FROM eclipse-temurin:21-jre
+ARG JDK_VERSION=21
+FROM eclipse-temurin:${JDK_VERSION}-jre
 WORKDIR server
 Expose 25565
 
