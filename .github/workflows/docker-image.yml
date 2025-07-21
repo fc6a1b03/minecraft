@@ -222,17 +222,17 @@ jobs:
       - name: Download Mods in Parallel
         run: |
           echo "${{ env.MOD_LIST }}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            # TODO：需要分页下载
             # 获取文件元数据
             FOUND_FILE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/$PID/files/$FID")
             FILE_ID=$(echo "$FOUND_FILE" | jq -r '.id')
             FILE_NAME=$(echo "$FOUND_FILE" | jq -r '.fileName')
             FILE_NAME_ENCODE=$(printf '%s' "$FILE_NAME" | jq -sRr '@uri')
             DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/$FILE_NAME_ENCODE"
-            echo "$DOWNLOAD_URL $FILE_NAME"
+            # 使用 tab 分隔URL和文件名
+            echo -e "$DOWNLOAD_URL\t$FILE_NAME"
           done > download-list.txt
           # 并行下载
-          sudo sh -c "parallel -j$(nproc) curl -fL -o ${{ env.JAR_CATALOG }}/{2} {1} :::: download-list.txt"
+          sudo sh -c "parallel -j\$(nproc) --colsep '\t' curl -fL -o \"\${{ env.JAR_CATALOG }}/{2}\" \"{1}\" :::: download-list.txt"
 
       # 整理服务端文件
       - name: Prepare Server Files
