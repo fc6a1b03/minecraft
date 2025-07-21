@@ -148,12 +148,17 @@ jobs:
       # 并发下载所有模组文件
       - name: Download Mods in Parallel
         run: |
-          # 生成下载清单
           echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files/${FID}")
-            FILE_ID=$(echo "$JSON" | jq -r '.data.id')
-            FILE_NAME=$(echo "$JSON" | jq -r '.data.fileName')
-            # 文件名 URL-encode
+            JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}")
+            CATEGORIES=$(echo "$JSON" | jq -r '.data.categories[].slug')
+            # 客户端模组过滤
+            if echo "$CATEGORIES" | grep -Eiq 'client|ui|visual|cosmetic|tooltip|button'; then
+              echo "[跳过] PID=${PID} 为客户端模组"
+              continue
+            fi
+            FILE_JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files/${FID}")
+            FILE_ID=$(echo "$FILE_JSON" | jq -r '.data.id')
+            FILE_NAME=$(echo "$FILE_JSON" | jq -r '.data.fileName')
             SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
             # 下载地址
             DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$SAFE_FILE_NAME"
