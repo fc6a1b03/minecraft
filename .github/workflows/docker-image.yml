@@ -238,13 +238,13 @@ jobs:
         run: |
           # 生成下载清单
           echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            JSON=$(curl -s "${CURSEFORGE_API}/mods/${PID}/files/${FID}")
+            JSON=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files/${FID}")
             FILE_ID=$(echo "$JSON" | jq -r '.data.id')
             FILE_NAME=$(echo "$JSON" | jq -r '.data.fileName')
             # 文件名 URL-encode
             SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
             # 下载地址
-            DOWNLOAD_URL="https://mediafilez.forgecdn.net/files/${FILE_ID:0:4}/${FILE_ID:4:3}/${SAFE_FILE_NAME}"
+            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$(printf '%04d' "${FILE_ID:0:4}")/$(printf '%03d' "${FILE_ID:4:3}")/${SAFE_FILE_NAME}"
             # 文件名
             CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
