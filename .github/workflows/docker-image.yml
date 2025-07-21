@@ -105,9 +105,9 @@ jobs:
             await exec.exec('unzip', ['-j', 'modpack.zip', 'manifest.json']);
             // 解析字段
             const manifest = JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'));
-            const normalized = manifest.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
-            const modList = manifest.files?.map(f => `${f.projectID}:${f.fileID}`).join(',') || '';
             const loaderVer = (manifest.minecraft.modLoaders[0]?.id || '').split('-')[1];
+            const modList = manifest.files?.map(f => `${f.projectID}:${f.fileID}`).join(',') || '';
+            const normalized = manifest.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
             // 输出到 GITHUB_ENV
             require('fs').appendFileSync(
               process.env.GITHUB_ENV, 
