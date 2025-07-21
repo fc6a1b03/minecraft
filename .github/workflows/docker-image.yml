@@ -125,7 +125,7 @@ jobs:
       - name: Download Mod Loader
         run: |
           dl() { curl -k -sSL "$1" -o "$2"; }
-          run() { java -jar "$2" --installServer; mv "$3" server-core.jar; rm -f *.jar *.txt *.log run.*; java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"; }
+          run() { java -jar "$1" --installServer; rm -f $1 *.txt *.log run.*; mv "$2" server-core.jar; java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"; }
           case "${{ inputs.MOD_LOADERS }}" in
             fabric)
               dl "$FABRIC_META/loader/$MINECRAFT_VERSION/$(curl -k -s $FABRIC_META/loader | jq -r '.[0].version')/$(curl -k -s $FABRIC_META/installer | jq -r '.[0].version')/server/jar" server-core.jar
@@ -134,14 +134,14 @@ jobs:
             forge)
               fv=$(curl -k -s "$FORGE_FILE" | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v+"-latest"]')
               dl "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$fv/forge-$MINECRAFT_VERSION-$fv-installer.jar" forge.jar
-              run forge.jar "forge-$MINECRAFT_VERSION-$fv-universal.jar"
+              run forge.jar *.jar
               ;;
             neoforge)
               nv=$(curl -k -s "$NEO_FORGED_VERSION" | jq -r --arg mc "${MINECRAFT_VERSION#1.}" '.versions | map(select(startswith($mc+"."))) | last // empty')
               [[ -z $nv ]] && { echo "::error::未找到支持 MC $MINECRAFT_VERSION 的 NeoForge"; exit 1; }
               dl "$NEO_FORGED_FILE/$nv/neoforge-$nv-installer.jar" neo.jar
-              run neo.jar "neoforge-$nv-server.jar"
-              ;;
+              run neo.jar *.jar
+            ;;
           esac
 
       # 并发下载所有模组文件

@@ -1,0 +1,8 @@
+public
+logs/**/*.log
+
+*.sh
+*.bat
+*.log
+*.txt
+*.properties

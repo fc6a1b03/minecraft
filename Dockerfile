@@ -2,10 +2,8 @@ FROM eclipse-temurin:21-jre
 WORKDIR server
 Expose 25565
 
-RUN rm -rf server.properties eula.txt logs/*
+COPY . .
 COPY public /public/
-COPY server-core.jar .
-COPY server.properties .
 RUN echo "eula=true" > eula.txt
 
 # JVM针对2C6G机器
@@ -51,4 +49,4 @@ ENV JVM_OPTS="\
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
 
-ENTRYPOINT ["sh", "-c", "cp -r /public/* mods/ && java -jar ${JVM_OPTS} server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
+ENTRYPOINT ["sh", "-c", "mkdir -p mods && cp -r /public/* mods/ && java -jar ${JVM_OPTS} server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
