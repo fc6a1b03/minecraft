@@ -155,7 +155,7 @@ jobs:
             GAME_VERSIONS=$(echo "$JSON" | jq -r '.data.gameVersions[]')
             if echo "$GAME_VERSIONS" | grep -qx "Client" && \
                ! echo "$GAME_VERSIONS" | grep -qx "Server"; then
-              echo "[跳过] 客户端模组: $FILE_NAME"
+              echo "[跳过] 客户端模组: $FILE_NAME" >&2
               continue
             fi
             FILE_ID=$(echo "$JSON" | jq -r '.data.id')
