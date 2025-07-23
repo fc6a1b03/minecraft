@@ -89,8 +89,6 @@ jobs:
         with:
           script: |
             const fs = require('fs').promises;
-            const core = require('@actions/core');
-            const exec = require('@actions/exec');
             const { spawn } = require('child_process');
             const { PROJECT_ID, MOD_LOADERS, SERVER_VERSION, CURSEFORGE_API, CURSEFORGE_DOWNLOAD_API } = process.env;
             // 查找匹配的模组文件
