@@ -168,8 +168,10 @@ jobs:
             CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
             printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
           done > download-list.txt
-          # 清理空行并计数
-          sed -i '/^$/d' download-list.txt TOTAL=$(wc -l < download-list.txt)
+          # 清理空行
+          sed -i '/^$/d' download-list.txt
+          # 累计总数
+          TOTAL=$(wc -l < download-list.txt)
           echo "===== 共有 ${TOTAL} 个模组需要下载 ====="
           # 并发下载
           sudo bash -c "
