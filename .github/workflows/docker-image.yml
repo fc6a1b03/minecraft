@@ -79,7 +79,7 @@ jobs:
           java-version: ${{ inputs.JDK_VERSION }}
 
       # 下载模组整合包并解析清单
-      - name: Download and Parse Manifest (Optimized)
+      - name: Download and Parse Manifest
         id: manifest
         uses: actions/github-script@v7
         env:
@@ -126,6 +126,7 @@ jobs:
                 proc.on('close', code => code === 0 ? resolve() : reject(new Error(`进程已退出，代码为 ${code}`)));
               });
             };
+            core.info(`正在解压整合包: ${manifest.name} ${manifest.version}`);
             try {
               // 主要尝试使用bsdtar
               await extractFiles('bsdtar', ['-xf', 'modpack.zip', 'manifest.json', 'overrides/*']);
@@ -160,7 +161,7 @@ jobs:
               `MOD_LOADER_VERSION=${loaderVer}`
             ].join('\n');
             await fs.appendFile(process.env.GITHUB_ENV, envOutput);
-            core.info(`已成功解析modpack: ${manifest.name} v${manifest.version}`);
+            core.info(`已成功解析modpack: ${manifest.name} ${manifest.version}`);
 
       # 下载模组加载器
       - name: Download Mod Loader
