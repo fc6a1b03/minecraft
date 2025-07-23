@@ -182,7 +182,7 @@ jobs:
             OUTPUT_PATH=\"${JAR_CATALOG}/\$CLEAN_NAME\"
             if curl -k -sS -fL -o \"\$OUTPUT_PATH\" \
                   -H \"User-Agent: Mozilla/5.0\" \
-                  -H \"Referer: https://curseforge.com/ CurseForge - the home for modding communities CurseForge - the home for modding communities  \" \
+                  -H \"Referer: https://curseforge.com/\" \
                   --globoff \
                   \"\$URL\"
             then
