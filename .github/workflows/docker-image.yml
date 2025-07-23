@@ -126,7 +126,7 @@ jobs:
                 proc.on('close', code => code === 0 ? resolve() : reject(new Error(`进程已退出，代码为 ${code}`)));
               });
             };
-            core.info(`正在解压整合包: ${manifest.name} ${manifest.version}`);
+            core.info('正在解压整合包');
             try {
               // 主要尝试使用bsdtar
               await extractFiles('bsdtar', ['-xf', 'modpack.zip', '--strip-components=1', 'manifest.json', 'overrides/*']);
