@@ -128,8 +128,8 @@ jobs:
             };
             core.info('正在解压整合包');
             try {
-              // 主要尝试使用bsdtar
-              await extractFiles('bsdtar', ['-xf', 'modpack.zip', '--strip-components=1', 'manifest.json', 'overrides/*']);
+              await extractFiles('bsdtar', ['-xf', 'modpack.zip', 'manifest.json', 'overrides/*']);
+              await exec.exec('mv', ['overrides/*', '.']);
             } catch (bsdError) {
               core.warning(`完全解压缩失败，仅提取清单`);
               await extractFiles('unzip', ['-j', 'modpack.zip', 'manifest.json']);
@@ -143,6 +143,7 @@ jobs:
             const normalized = manifest.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
             // 异步清理文件
             Promise.all([
+              fs.unlink('overrides').catch(e => core.debug(e)),
               fs.unlink('modpack.zip').catch(e => core.debug(e)),
               fs.unlink('manifest.json').catch(e => core.debug(e))
             ]);
