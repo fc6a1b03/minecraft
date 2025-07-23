@@ -103,7 +103,11 @@ jobs:
             const fileId = files.id.toString();
             await exec.exec('curl', ['-k', '-sS', '-o', 'modpack.zip', `${CURSEFORGE_DOWNLOAD_API}/${fileId.slice(0,4)}/${fileId.slice(4,7)}/${encodeURIComponent(files.fileName)}`]);
             // 取出 manifest.json
-            await exec.exec('unzip', ['-j', 'modpack.zip', 'manifest.json']);
+            try {
+              await exec.exec('unzip', ['-j', 'modpack.zip', 'manifest.json', 'overrides/*']);
+            } catch (err) {
+              await exec.exec('unzip', ['-j', 'modpack.zip', 'manifest.json']);
+            }
             // 解析字段
             const manifest = JSON.parse(require('fs').readFileSync('manifest.json', 'utf8'));
             const loaderVer = (manifest.minecraft.modLoaders[0]?.id || '').split('-')[1];
