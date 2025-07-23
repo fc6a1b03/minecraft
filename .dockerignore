@@ -1,7 +1,9 @@
+.git
 temp
 *.md
 *.bat
 *.log
 *.txt
 Dockerfile
+node_modules
 logs/**/*.log
