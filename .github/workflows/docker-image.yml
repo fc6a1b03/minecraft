@@ -37,6 +37,7 @@ jobs:
             'map(select(.loaders[]==$L and (.game_versions[]==$G) and .version_type=="release")) | sort_by(.date_published) | last')
           version_id=$(echo "$resp" | jq -r '.id')
           mc_ver=$(echo "$resp" | jq -r '.game_versions[0]')
+          pack_ver=$(echo "$resp" | jq -r '.version_number')
           # 推断 Java 版本
           case "$mc_ver" in
             1.20.5*|1.20.6*|1.21*) jvm="21" ;;
@@ -45,8 +46,9 @@ jobs:
             1.17*)                  jvm="16" ;;
             *)                      jvm="8"  ;;
           esac
-          echo "version_id=$version_id" >> $GITHUB_OUTPUT
           echo "java=$jvm"              >> $GITHUB_OUTPUT
+          echo "pack_ver=$pack_ver"     >> $GITHUB_OUTPUT
+          echo "version_id=$version_id" >> $GITHUB_OUTPUT
 
       # 初始化公共工件
       - uses: actions/checkout@v4
@@ -105,7 +107,7 @@ jobs:
             JAVA_VERSION=${{ steps.meta.outputs.java }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version_id }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.pack_ver }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=image,compression=zstd,compression-level=9
