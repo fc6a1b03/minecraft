@@ -75,7 +75,7 @@ jobs:
           curl -L -o mrpack4server.jar \
             "https://mrpack4server.pb4.eu/download/${{ inputs.PROJECT_ID }}/${{ steps.meta.outputs.version_id }}/jvm${{ steps.meta.outputs.java }}/server.jar"
           # 用 mrpack4server 的 --extract-only 模式展开整合包
-          java -jar server.jar --nogui
+          java -jar mrpack4server.jar --nogui
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6
