@@ -2,8 +2,8 @@ ARG JAVA_VERSION=21
 FROM eclipse-temurin:${JAVA_VERSION} as builder
 WORKDIR server
 
-COPY server.jar server.jar
-RUN mkdir -p /temp/cache && java -jar server.jar --nogui --universe /temp/cache/
+COPY . .
+RUN ls -lah && ./start.sh
 
 ################################
 
