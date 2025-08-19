@@ -72,10 +72,16 @@ jobs:
             "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" \
             -o local.mrpack
           # 获取 mrpack4server 解压器
-          curl -L -o mrpack4server.jar \
+          curl -L -o server.jar \
             "https://mrpack4server.pb4.eu/download/${{ inputs.PROJECT_ID }}/${{ steps.meta.outputs.version_id }}/jvm${{ steps.meta.outputs.java }}/server.jar"
           # 用 mrpack4server 的 --extract-only 模式展开整合包
-          java -jar mrpack4server.jar --nogui
+          mkdir -p temp && java -jar server.jar --nogui --extract-only --universe temp
+
+      # 剔除所有 CLIENT-only 模组
+      - name: Auto-filter client-only mods
+        run: |
+          curl -sSL https://raw.githubusercontent.com/FabricMC/fabric-mod-filter/main/install.sh | sh
+          ./fabric-mod-filter --dir mods --remove client
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6

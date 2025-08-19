@@ -1,18 +1,9 @@
 ARG JAVA_VERSION=21
-FROM eclipse-temurin:${JAVA_VERSION} as builder
-WORKDIR server
-
-COPY . .
-RUN ls -lah && ./start.sh && ls -lah
-
-################################
-
-ARG JAVA_VERSION=21
 FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine as runtime
 WORKDIR server
 Expose 25565
 
-COPY --from=builder server .
+COPY . .
 RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
 RUN echo "eula=true" > eula.txt
