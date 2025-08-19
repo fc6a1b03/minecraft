@@ -3,7 +3,7 @@ FROM eclipse-temurin:${JAVA_VERSION} as builder
 WORKDIR server
 
 COPY . .
-RUN ls -lah && ./start.sh
+RUN ls -lah && ./start.sh && ls -lah
 
 ################################
 
