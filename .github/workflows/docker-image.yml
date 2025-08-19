@@ -70,12 +70,12 @@ jobs:
           # 获取 mrpack
           curl -L \
             "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" \
-            -o pack.mrpack
+            -o local.mrpack
           # 获取 mrpack4server 解压器
           curl -L -o mrpack4server.jar \
             "https://mrpack4server.pb4.eu/download/${{ inputs.PROJECT_ID }}/${{ steps.meta.outputs.version_id }}/jvm${{ steps.meta.outputs.java }}/server.jar"
           # 用 mrpack4server 的 --extract-only 模式展开整合包
-          java -jar mrpack4server.jar --nogui --install-only
+          java -jar server.jar --nogui
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6
