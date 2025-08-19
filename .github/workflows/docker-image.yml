@@ -4,256 +4,76 @@ on:
   workflow_dispatch:
     inputs:
       PROJECT_ID:
-        description: 'CurseForge项目ID'
+        description: 'Modpack slug/ID'
         required: true
         type: string
-      SERVER_VERSION:
-        description: 'Minecraft服务端版本'
+      GAME_VERSION:
+        description: 'Game version (e.g. 1.21)'
         required: true
         type: string
-      MOD_LOADERS:
-        description: 'Minecraft模组加载器 (fabric/forge/neoforge)'
+      LOADER:
+        description: 'Loader (fabric|forge|neoforge|quilt)'
         required: true
         default: 'fabric'
-        type: string
-      JDK_VERSION:
-        description: 'Java版本 (21/17/11/8)'
-        required: true
-        default: '21'
         type: string
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     env:
       REGISTRY: ghcr.io
-      JAR_CATALOG: ${{ github.workspace }}/mods
-      CURSEFORGE_API: https://www.curseforge.com/api/v1
-      FABRIC_META: https://meta.fabricmc.net/v2/versions
-      TEMP_CACHE_CATALOG: ${{ github.workspace }}/temp/cache/
-      CURSEFORGE_DOWNLOAD_API: https://mediafilez.forgecdn.net/files
-      FORGE_DOWNLOAD: https://maven.minecraftforge.net/net/minecraftforge/forge
-      FABRIC_API_BASE_URL: https://api.github.com/repos/FabricMC/fabric/releases?per_page=100
-      FORGE_FILE: https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json
-      NEO_FORGED_FILE: https://maven.neoforged.net/releases/net/neoforged/neoforge
-      NEO_FORGED_VERSION: https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge
-
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.inputs.PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Set Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: network=host
-      - name: Set QEMU
-        uses: docker/setup-qemu-action@v3
-
-      # 验证模组整合包是否存在
-      - name: Validate Modpack
+      # 解析整合包元数据 & 推断 Java 版本
+      - name: Resolve metadata
+        id: meta
         run: |
-          RESPONSE=$(curl -s "${{ env.CURSEFORGE_API }}/mods/${{ inputs.PROJECT_ID }}/files")
-          if [ $(echo "$RESPONSE" | jq -r '.data.id') == null ]; then
-            echo "::error::Invalid Project ID"
-            exit 1
-          fi
+          # 查询 Modrinth 最新发布版
+          resp=$(curl -s "https://api.modrinth.com/v2/project/${{ inputs.PROJECT_ID }}/version" | \
+            jq -r --arg L "${{ inputs.LOADER }}" --arg G "${{ inputs.GAME_VERSION }}" \
+            'map(select(.loaders[]==$L and (.game_versions[]==$G) and .version_type=="release")) | sort_by(.date_published) | last')
+          version_id=$(echo "$resp" | jq -r '.id')
+          mc_ver=$(echo "$resp" | jq -r '.game_versions[0]')
+          # 推断 Java 版本
+          case "$mc_ver" in
+            1.20.5*|1.20.6*|1.21*) jvm="21" ;;
+            1.19.3*|1.19.4*|1.20*)  jvm="17" ;;
+            1.18*)                  jvm="17" ;;
+            1.17*)                  jvm="16" ;;
+            *)                      jvm="8"  ;;
+          esac
+          echo "version_id=$version_id" >> $GITHUB_OUTPUT
+          echo "java=$jvm"              >> $GITHUB_OUTPUT
 
-      # 登录到容器仓库
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        id: docker-login
+      # 下载 server.jar
+      - name: Download server.jar
+        run: |
+          url="https://mrpack4server.pb4.eu/download/${{ inputs.PROJECT_ID }}/${{ steps.meta.outputs.version_id }}/jvm${{ steps.meta.outputs.java }}/server.jar"
+          curl -L -o server.jar "$url"
+
+      # 初始化公共工件
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # 初始化环境
-      - name: Init Env
-        run: |
-          sudo mkdir -p ${{ env.JAR_CATALOG }}
-          sudo mkdir -p ${{ env.TEMP_CACHE_CATALOG }}
-          sudo apt-get update -qq
-          sudo apt-get install -qq -y libarchive-tools
-      - name: Set JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: ${{ inputs.JDK_VERSION }}
-
-      # 下载模组整合包并解析清单
-      - name: Download and Parse Manifest
-        id: manifest
-        uses: actions/github-script@v7
-        env:
-          PROJECT_ID: ${{ inputs.PROJECT_ID }}
-          MOD_LOADERS: ${{ inputs.MOD_LOADERS }}
-          SERVER_VERSION: ${{ inputs.SERVER_VERSION }}
-        with:
-          script: |
-            const fs = require('fs').promises;
-            const { spawn } = require('child_process');
-            const { PROJECT_ID, MOD_LOADERS, SERVER_VERSION, CURSEFORGE_API, CURSEFORGE_DOWNLOAD_API } = process.env;
-            // 查找匹配的模组文件
-            const files = await (async () => {
-              core.info(`Searching files for ${SERVER_VERSION}/${MOD_LOADERS}...`);
-              for (let page = 0; page < 10; page++) {
-                const res = await fetch(`${CURSEFORGE_API}/mods/${PROJECT_ID}/files?pageIndex=${page}&pageSize=50&sort=dateCreated&sortDescending=true`);
-                if (!res.ok) {
-                  core.info(`API request failed (page ${page}), retrying...`);
-                  continue;
-                }
-                const { data } = await res.json();
-                const hit = data.find(f =>
-                  f.gameVersions?.some(v => v.toLowerCase() === SERVER_VERSION.toLowerCase()) &&
-                  f.gameVersions?.some(v => v.toLowerCase() === MOD_LOADERS.toLowerCase())
-                );
-                if (hit) {
-                  core.info(`Found matching file: ${hit.fileName}`);
-                  return hit;
-                }
-              }
-              core.setFailed(`找不到匹配版本 ${SERVER_VERSION}/${MOD_LOADERS} 的 modpack 文件`);
-              throw new Error('No matching files found');
-            })();
-            // 下载整合包
-            const fileId = files.id.toString();
-            const downloadUrl = `${CURSEFORGE_DOWNLOAD_API}/${fileId.slice(0,4)}/${fileId.slice(4,7)}/${encodeURIComponent(files.fileName)}`;
-            core.info(`正在下载整合包 ${downloadUrl}`);
-            await exec.exec('curl', ['-k', '-sS', '-o', 'modpack.zip', downloadUrl]);
-            // 使用bsdtar高效解压
-            const extractFiles = async (command, args) => {
-              return new Promise((resolve, reject) => {
-                const proc = spawn(command, args, { stdio: 'inherit' });
-                proc.on('error', reject);
-                proc.on('close', code => code === 0 ? resolve() : reject(new Error(`进程已退出，代码为 ${code}`)));
-              });
-            };
-            core.info('正在解压整合包');
-            try {
-              await extractFiles('bsdtar', ['-xf', 'modpack.zip', 'manifest.json', 'overrides']);
-              await fs.access('overrides');
-              await exec.exec('sh', ['-c', 'mv overrides/* overrides/.[^.]* . 2>/dev/null || true']);
-              await exec.exec('rm', ['-rf', 'overrides']);
-            } catch (bsdError) {
-              core.warning(`完全解压缩失败，仅提取清单`);
-              await extractFiles('unzip', ['-o' ,'-j', 'modpack.zip', 'manifest.json']);
-            }
-            // 解析manifest
-            core.info("解析 manifest.json...");
-            const manifestData = await fs.readFile('manifest.json', 'utf8');
-            const manifest = JSON.parse(manifestData);
-            const loaderVer = (manifest.minecraft.modLoaders[0]?.id || '').split('-')[1] || '';
-            const modList = manifest.files?.map(f => `${f.projectID}:${f.fileID}`).join(',') || '';
-            const normalized = manifest.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
-            // 异步清理文件
-            Promise.all([
-              fs.unlink('modpack.zip').catch(e => core.debug(e)),
-              fs.unlink('manifest.json').catch(e => core.debug(e))
-            ]);
-            // 输出到环境变量
-            const envOutput = [
-              `NORMALIZED_NAME=${normalized}`,
-              `MODPACK_VERSION=${manifest.version}`,
-              `MINECRAFT_VERSION=${manifest.minecraft.version}`,
-              `MOD_LIST=${modList}`,
-              `MOD_LOADER_VERSION=${loaderVer}`
-            ].join('\n');
-            await fs.appendFile(process.env.GITHUB_ENV, envOutput);
-            core.info(`已成功解析modpack: ${manifest.name} ${manifest.version}`);
-
-      # 下载模组加载器
-      - name: Download Mod Loader
-        run: |
-          dl() { curl -k -sSL "$1" -o "$2"; }
-          case "${{ inputs.MOD_LOADERS }}" in
-            fabric)
-              dl "$FABRIC_META/loader/$MINECRAFT_VERSION/$(curl -k -s $FABRIC_META/loader | jq -r '.[0].version')/$(curl -k -s $FABRIC_META/installer | jq -r '.[0].version')/server/jar" server-core.jar
-              java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"
-              ;;
-            forge)
-              fv=$(curl -k -s "$FORGE_FILE" | jq -r --arg v "$MINECRAFT_VERSION" '.promos[$v+"-latest"]')
-              dl "$FORGE_DOWNLOAD/$MINECRAFT_VERSION-$fv/forge-$MINECRAFT_VERSION-$fv-installer.jar" forge.jar
-              java -jar forge.jar --installServer && rm -f forge.jar && mv forge-*.jar server-core.jar && java -jar server-core.jar --nogui --universe "$TEMP_CACHE_CATALOG"
-              ;;
-            neoforge)
-              nv=$(curl -k -s "$NEO_FORGED_VERSION" | jq -r --arg mc "${MINECRAFT_VERSION#1.}" '.versions | map(select(startswith($mc+"."))) | last // empty')
-              dl "$NEO_FORGED_FILE/$nv/neoforge-$nv-installer.jar" neo.jar
-              java -jar neo.jar --installServer && rm -f neo.jar && chmod +x run.sh && ./run.sh nogui --universe "$TEMP_CACHE_CATALOG"
-              ;;
-          esac
-
-      # 并发下载所有模组文件
-      - name: Download Mods in Parallel
-        run: |
-          # 生成下载清单
-          echo "${MOD_LIST}" | tr ',' '\n' | while IFS=":" read -r PID FID; do
-            JSON=$(curl -k -s "${{ env.CURSEFORGE_API }}/mods/${PID}/files/${FID}")
-            # 过滤客户端模组
-            GAME_VERSIONS=$(echo "$JSON" | jq -r '.data.gameVersions[]')
-            if echo "$GAME_VERSIONS" | grep -qx "Client" && \
-               ! echo "$GAME_VERSIONS" | grep -qx "Server"; then
-              echo "[跳过] 客户端模组: $FILE_NAME" >&2
-              continue
-            fi
-            FILE_ID=$(echo "$JSON" | jq -r '.data.id')
-            FILE_NAME=$(echo "$JSON" | jq -r '.data.fileName')
-            # 文件名 URL-encode
-            SAFE_FILE_NAME=$(jq -nr --arg fn "$FILE_NAME" '$fn|@uri')
-            # 下载地址
-            DOWNLOAD_URL="${{ env.CURSEFORGE_DOWNLOAD_API }}/$((10#${FILE_ID:0:4}))/$((10#${FILE_ID:4:3}))/$SAFE_FILE_NAME"
-            # 文件名
-            CLEAN_FILE_NAME=$(echo "$FILE_NAME" | tr -d "'\"")
-            printf '%s\t%s\n' "$DOWNLOAD_URL" "$CLEAN_FILE_NAME"
-          done > download-list.txt
-          # 清理空行
-          sed -i '/^$/d' download-list.txt
-          # 累计总数
-          TOTAL=$(wc -l < download-list.txt)
-          echo "===== 共有 ${TOTAL} 个模组需要下载 ====="
-          # 并发下载
-          sudo bash -c "
-            parallel --will-cite -j\$(nproc) --colsep '\t' '
-            URL={1}
-            CLEAN_NAME={2}
-            echo \"[下载链接] \$URL\"
-            OUTPUT_PATH=\"${JAR_CATALOG}/\$CLEAN_NAME\"
-            if curl -k -sS -fL -o \"\$OUTPUT_PATH\" \
-                  -H \"User-Agent: Mozilla/5.0\" \
-                  -H \"Referer: https://curseforge.com/\" \
-                  --globoff \
-                  \"\$URL\"
-            then
-              echo \"[成功] \$CLEAN_NAME 已下载\"
-            else
-              echo \"[失败] \$CLEAN_NAME 下载失败\"
-              exit 1
-            fi
-            ' :::: download-list.txt
-          "
-
-      # 生成启动脚本
-      - name: Build start script
-        run: |
-          {
-            echo '#!/bin/sh'
-            case "${{ inputs.MOD_LOADERS }}" in
-              fabric|forge)
-                echo 'exec java ${JVM_OPTS} -jar server-core.jar --nogui --eraseCache --forceUpgrade --universe /data/'
-                ;;
-              neoforge)
-                echo 'chmod +x run.sh'
-                echo 'exec bash -c "JVM_OPTS=\"$JVM_OPTS\" ./run.sh --nogui --eraseCache --forceUpgrade --universe /data/"'
-                ;;
-            esac
-          } > start.sh
-          chmod +x start.sh
+      - uses: docker/setup-buildx-action@v3
 
       # 构建并推送多架构镜像
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
-            JDK_VERSION=${{ inputs.JDK_VERSION }}
+            JAVA_VERSION=${{ steps.meta.outputs.java }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           outputs: type=image,compression=zstd,compression-level=9
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.NORMALIZED_NAME }}:${{ inputs.MOD_LOADERS }}-${{ env.MODPACK_VERSION }}-${{ inputs.JDK_VERSION }}

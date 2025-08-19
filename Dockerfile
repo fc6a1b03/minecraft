@@ -1,11 +1,21 @@
-ARG JDK_VERSION=21
-FROM eclipse-temurin:${JDK_VERSION}-jre
+ARG JAVA_VERSION=21
+FROM eclipse-temurin:${JAVA_VERSION} as builder
+WORKDIR server
+
+COPY server.jar server.jar
+RUN mkdir -p /temp/cache && java -jar server.jar --nogui --universe /temp/cache/
+
+################################
+
+ARG JAVA_VERSION=21
+FROM eclipse-temurin:${JAVA_VERSION}-jre as runtime
 WORKDIR server
 Expose 25565
 
-COPY . .
+COPY --from=builder server .
+RUN rm -rf server.properties eula.txt logs/*
+COPY server.properties .
 RUN echo "eula=true" > eula.txt
-RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # JVM针对2C6G机器
 ENV JVM_OPTS="\
@@ -48,4 +58,6 @@ ENV JVM_OPTS="\
 -XX:+UseStringDeduplication" \
     TZ=Asia/Shanghai
 
-ENTRYPOINT ["sh", "-c", "./start.sh"]
+RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+ENTRYPOINT ["sh", "-c", "java -jar ${JVM_OPTS} server.jar --nogui --eraseCache --forceUpgrade --universe /data/"]
