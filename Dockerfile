@@ -3,7 +3,6 @@ FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine as runtime
 WORKDIR server
 Expose 25565
 
-RUN ls -lah
 COPY . .
 RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
