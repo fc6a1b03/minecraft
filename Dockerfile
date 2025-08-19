@@ -8,7 +8,7 @@ RUN mkdir -p /temp/cache && java -jar server.jar --nogui --universe /temp/cache/
 ################################
 
 ARG JAVA_VERSION=21
-FROM eclipse-temurin:${JAVA_VERSION}-jre as runtime
+FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine as runtime
 WORKDIR server
 Expose 25565
 
