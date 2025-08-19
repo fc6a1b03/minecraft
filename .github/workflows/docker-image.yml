@@ -106,7 +106,7 @@ jobs:
             JAVA_VERSION=${{ steps.meta.outputs.java }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.pack_ver }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.LOADER }}-${{ steps.meta.outputs.pack_ver }}-${{ inputs.GAME_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=image,compression=zstd,compression-level=9

@@ -1,6 +1,6 @@
 这个分支将会使用[Modpacks](https://www.curseforge.com/minecraft/modpacks)作为构建核心，基于其中的`manifest.json`创建镜像
 
-> 镜像规范：ghcr.io/fc6a1b03/{{ NORMALIZED_NAME }}:{{ MOD_LOADERS }}-{{ MODPACK_VERSION }}-{{ JDK_VERSION }}
+> 镜像规范：ghcr.io/fc6a1b03/{{ NORMALIZED_NAME }}:{{ MOD_LOADERS }}-{{ MODPACK_VERSION }}-{{ GAME_VERSION }}
 
 ### 制作Dockerfile
 - [Dockerfile](Dockerfile)
