@@ -82,6 +82,9 @@ jobs:
       # 自动剔除所有 CLIENT-only 模组
       - name: Auto-filter client-only mods
         run: |
+          # 优先删除 macos_input_fixes
+          rm -f mods/macos_input_fixes-*.jar
+          # 通用删除
           for jar in mods/*.jar; do
             # Fabric：先把 fabric.mod.json 转文本再解析
             json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null)
