@@ -77,11 +77,19 @@ jobs:
           # 用 mrpack4server 的 --extract-only 模式展开整合包
           mkdir -p temp && java -jar server.jar --nogui --extract-only --universe temp
 
-      # 剔除所有 CLIENT-only 模组
+      # 自动剔除所有 CLIENT-only 模组
       - name: Auto-filter client-only mods
         run: |
-          curl -sSL https://raw.githubusercontent.com/FabricMC/fabric-mod-filter/main/install.sh | sh
-          ./fabric-mod-filter --dir mods --remove client
+          for jar in mods/*.jar; do
+            # Fabric
+            if unzip -c "$jar" fabric.mod.json 2>/dev/null | jq -e '.environment=="client"' >/dev/null 2>&1; then
+              echo "Remove Fabric client-only $jar" && rm "$jar" && continue
+            fi
+            # Forge / Quilt
+            if unzip -c "$jar" META-INF/mods.toml 2>/dev/null | grep -qi 'side.*CLIENT'; then
+              echo "Remove Forge/Quilt client-only $jar" && rm "$jar"
+            fi
+          done
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6
