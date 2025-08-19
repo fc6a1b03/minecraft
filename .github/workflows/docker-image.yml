@@ -83,16 +83,15 @@ jobs:
       - name: Auto-filter client-only mods
         run: |
           for jar in mods/*.jar; do
-            # Fabric：environment 可以是字符串或数组，只要包含 "client"
-            if unzip -c "$jar" fabric.mod.json 2>/dev/null | \
-              jq -r '.environment // empty' | \
-              tr '[:upper:]' '[:lower:]' | \
-              grep -q '\bclient\b'; then
-              echo "Remove Fabric client-only $jar" && rm "$jar" && continue
+            # Fabric：先把 fabric.mod.json 转文本再解析
+            json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null)
+            if [[ -n "$json" ]]; then
+              # 兼容字符串或数组；忽略大小写
+              env=$(echo "$json" | jq -r '.environment?|strings//(.environment?[]?//"")' 2>/dev/null | tr '[:upper:]' '[:lower:]')
+              [[ "$env" == *"client"* ]] && echo "Remove Fabric client-only $jar" && rm "$jar" && continue
             fi
-            # Forge/Quilt：精确 side="CLIENT"
-            if unzip -c "$jar" META-INF/mods.toml 2>/dev/null | \
-              grep -qP 'side\s*=\s*"CLIENT"'; then
+            # Forge / Quilt：精准匹配 side="CLIENT"
+              if unzip -p "$jar" META-INF/mods.toml 2>/dev/null | grep -qP 'side\s*=\s*"CLIENT"'; then
               echo "Remove Forge/Quilt client-only $jar" && rm "$jar"
             fi
           done
