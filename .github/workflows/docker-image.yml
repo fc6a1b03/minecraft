@@ -83,27 +83,52 @@ jobs:
       - name: Auto-filter macos_input_fixes mods
         shell: bash
         run: |
-          # 显式同名 jar
           rm -f mods/macos_input_fixes-*.jar mods/macos-input-fixes-*.jar
+          # 已知客户端模组清单（按需继续追加）
+          CLIENT_MODS=(
+            miningspeedtooltips
+            particle-effects
+            satisfying-buttons
+            iris*
+            sodium*
+            iris-fabric
+            sodium-fabric
+            betteradvancements
+            betterstats
+            xaerominimap
+            xaeroworldmap
+            jei-*
+            modmenu
+            bobby
+            continuity
+            indium
+            iris-mc*
+            sodium-extra
+            reeses-sodium-options
+            immediatelyfast
+            iris-flavored
+          )
+          for pattern in "${CLIENT_MODS[@]}"; do
+            for jar in mods/$pattern*.jar; do
+              [[ -f $jar ]] || continue
+              echo "Purged (known client): $jar"
+              rm -- "$jar"
+            done
+          done
+          # 兜底：fabric.mod.json 中 environment=client
           for jar in mods/*.jar; do
             [[ -f $jar ]] || continue
-            # 任何 jar 内出现 macos_input_fixes → 删除
-            if unzip -l "$jar" 2>/dev/null | grep -iq 'macos_input_fixes'; then
-              echo "Purged (macos_input_fixes): $jar"
-              rm -- "$jar"
-              continue
-            fi
-            # Fabric：environment 字段为 client
             json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null | head -c 65536)
-            if [[ -n $json ]]; then
-              env=$(awk -F'"' '/"environment"/{getline; print $2}' <<<"$json" | tr '[:upper:]' '[:lower:]')
-              [[ $env == "client" ]] && { echo "Purged (Fabric client): $jar"; rm -- "$jar"; continue; }
-            fi
-            # Forge / Quilt：mods.toml 中 side="CLIENT"
+            [[ -z $json ]] && continue
+            env=$(awk -F'"' '/"environment"/{getline; print $2}' <<<"$json" | tr '[:upper:]' '[:lower:]')
+            [[ $env == "client" ]] && { echo "Purged (Fabric client): $jar"; rm -- "$jar"; }
+          done
+          # 兜底：Forge/Quilt mods.toml side="CLIENT"
+          for jar in mods/*.jar; do
+            [[ -f $jar ]] || continue
             if unzip -p "$jar" META-INF/mods.toml 2>/dev/null | head -c 65536 | \
-               grep -qiP 'side\s*=\s*"CLIENT"'; then
-              echo "Purged (Forge/Quilt client): $jar"
-              rm -- "$jar"
+              grep -qiP 'side\s*=\s*"CLIENT"'; then
+              echo "Purged (Forge/Quilt client): $jar"; rm -- "$jar"
             fi
           done
 
