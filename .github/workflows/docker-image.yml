@@ -83,30 +83,28 @@ jobs:
       - name: Auto-filter client-only mods
         shell: bash
         run: |
-          # 剔除同名 jar
-          rm -f mods/macos_input_fixes-*.jar
-          # 流式扫描：每 jar 只读前 64 KiB → 命中即删
+          # 显式同名 jar 立即删除
+          rm -f mods/macos_input_fixes-*.jar mods/macos-input-fixes-*.jar
           for jar in mods/*.jar; do
             [[ -f $jar ]] || continue
-            # 2-a 直接字节匹配
-            if unzip -q -c "$jar" 2>/dev/null | head -c 65536 | \
-               grep -i -q 'macos_input_fixes'; then
-              echo "Purged (embed): $jar" >&2
-              rm -- "$jar"
-              continue
+            # 2-a 字节级检测：jar 内任何位置出现 macos_input_fixes
+            if unzip -l "$jar" 2>/dev/null | grep -iq 'macos_input_fixes'; then
+              echo "Purged (macos_input_fixes): $jar" && rm -- "$jar" && continue
             fi
-            # 2-b Fabric environment=client
-            json=$(unzip -q -c "$jar" fabric.mod.json 2>/dev/null | head -c 65536)
-            if [[ $json == *'"environment"'* ]]; then
-              # 用 awk 解析，避免 jq 依赖
-              env=$(awk -F'"' '/"environment"/{for(i=1;i<=NF;i++) if($(i)=="environment"){print $(i+2); exit}}' <<<"$json" | tr '[:upper:]' '[:lower:]')
-              [[ $env == "client" ]] && { echo "Purged (Fabric client): $jar" >&2; rm -- "$jar"; continue; }
+            # 2-b Fabric environment=client 或 jars 嵌套
+            json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null | head -c 65536)
+            if [[ -n $json ]]; then
+              # 嵌套 jars 含 macos_input_fixes
+              nested=$(awk '/"file"/{if(match($0,/macos_input_fixes/i)) exit 1}' <<<"$json" && echo ok || echo bad)
+              [[ $nested == "bad" ]] && { echo "Purged (nested macos_input_fixes): $jar" && rm -- "$jar" && continue; }
+              # environment 字段
+              env=$(awk -F'"' '/"environment"/{getline; print $2}' <<<"$json" 2>/dev/null | tr '[:upper:]' '[:lower:]')
+              [[ $env == "" || $env == "client" ]] && { echo "Purged (Fabric client): $jar" && rm -- "$jar" && continue; }
             fi
             # 2-c Forge/Quilt side="CLIENT"
-            if unzip -q -c "$jar" META-INF/mods.toml 2>/dev/null | head -c 65536 | \
-               grep -qP 'side\s*=\s*"CLIENT"'; then
-              echo "Purged (Forge/Quilt client): $jar" >&2
-              rm -- "$jar"
+            if unzip -p "$jar" META-INF/mods.toml 2>/dev/null | head -c 65536 | \
+               grep -qiP 'side\s*=\s*"CLIENT"'; then
+              echo "Purged (Forge/Quilt client): $jar" && rm -- "$jar"
             fi
           done
 
