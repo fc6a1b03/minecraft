@@ -83,14 +83,26 @@ jobs:
       - name: Auto-filter macos_input_fixes mods
         shell: bash
         run: |
-          # 显式同名 jar 立即删除
+          # 显式同名 jar
           rm -f mods/macos_input_fixes-*.jar mods/macos-input-fixes-*.jar
-          # 扫描并删除任何携带 macos_input_fixes 的 jar（包括嵌套）
           for jar in mods/*.jar; do
             [[ -f $jar ]] || continue
-            # 只要 jar 内出现 “macos_input_fixes” 字样即删
+            # 任何 jar 内出现 macos_input_fixes → 删除
             if unzip -l "$jar" 2>/dev/null | grep -iq 'macos_input_fixes'; then
-              echo "Purged (contains macos_input_fixes): $jar"
+              echo "Purged (macos_input_fixes): $jar"
+              rm -- "$jar"
+              continue
+            fi
+            # Fabric：environment 字段为 client
+            json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null | head -c 65536)
+            if [[ -n $json ]]; then
+              env=$(awk -F'"' '/"environment"/{getline; print $2}' <<<"$json" | tr '[:upper:]' '[:lower:]')
+              [[ $env == "client" ]] && { echo "Purged (Fabric client): $jar"; rm -- "$jar"; continue; }
+            fi
+            # Forge / Quilt：mods.toml 中 side="CLIENT"
+            if unzip -p "$jar" META-INF/mods.toml 2>/dev/null | head -c 65536 | \
+               grep -qiP 'side\s*=\s*"CLIENT"'; then
+              echo "Purged (Forge/Quilt client): $jar"
               rm -- "$jar"
             fi
           done
