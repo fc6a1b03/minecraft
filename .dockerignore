@@ -12,4 +12,3 @@ modlist.html
 node_modules
 logs/**/*.log
 .dockerignore
-.mrpack4server
