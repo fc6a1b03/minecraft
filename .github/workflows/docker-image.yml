@@ -79,23 +79,34 @@ jobs:
           # 用 mrpack4server 的 --extract-only 模式展开整合包
           mkdir -p temp && java -jar server.jar --nogui --extract-only --universe temp
 
-      # 自动剔除所有 CLIENT-only 模组
+      # 自动剔除所有 CLIENT-only and macos_input_fixes 模组
       - name: Auto-filter client-only mods
+        shell: bash
         run: |
-          # 优先删除 macos_input_fixes
+          # 剔除同名 jar
           rm -f mods/macos_input_fixes-*.jar
-          # 通用删除
+          # 流式扫描：每 jar 只读前 64 KiB → 命中即删
           for jar in mods/*.jar; do
-            # Fabric：先把 fabric.mod.json 转文本再解析
-            json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null)
-            if [[ -n "$json" ]]; then
-              # 兼容字符串或数组；忽略大小写
-              env=$(echo "$json" | jq -r '.environment?|strings//(.environment?[]?//"")' 2>/dev/null | tr '[:upper:]' '[:lower:]')
-              [[ "$env" == *"client"* ]] && echo "Remove Fabric client-only $jar" && rm "$jar" && continue
+            [[ -f $jar ]] || continue
+            # 2-a 直接字节匹配
+            if unzip -q -c "$jar" 2>/dev/null | head -c 65536 | \
+               grep -i -q 'macos_input_fixes'; then
+              echo "Purged (embed): $jar" >&2
+              rm -- "$jar"
+              continue
             fi
-            # Forge / Quilt：精准匹配 side="CLIENT"
-              if unzip -p "$jar" META-INF/mods.toml 2>/dev/null | grep -qP 'side\s*=\s*"CLIENT"'; then
-              echo "Remove Forge/Quilt client-only $jar" && rm "$jar"
+            # 2-b Fabric environment=client
+            json=$(unzip -q -c "$jar" fabric.mod.json 2>/dev/null | head -c 65536)
+            if [[ $json == *'"environment"'* ]]; then
+              # 用 awk 解析，避免 jq 依赖
+              env=$(awk -F'"' '/"environment"/{for(i=1;i<=NF;i++) if($(i)=="environment"){print $(i+2); exit}}' <<<"$json" | tr '[:upper:]' '[:lower:]')
+              [[ $env == "client" ]] && { echo "Purged (Fabric client): $jar" >&2; rm -- "$jar"; continue; }
+            fi
+            # 2-c Forge/Quilt side="CLIENT"
+            if unzip -q -c "$jar" META-INF/mods.toml 2>/dev/null | head -c 65536 | \
+               grep -qP 'side\s*=\s*"CLIENT"'; then
+              echo "Purged (Forge/Quilt client): $jar" >&2
+              rm -- "$jar"
             fi
           done
 
