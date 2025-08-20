@@ -79,32 +79,19 @@ jobs:
           # 用 mrpack4server 的 --extract-only 模式展开整合包
           mkdir -p temp && java -jar server.jar --nogui --extract-only --universe temp
 
-      # 自动剔除所有 CLIENT-only and macos_input_fixes 模组
-      - name: Auto-filter client-only mods
+      # 自动剔除所有 macos_input_fixes 模组
+      - name: Auto-filter macos_input_fixes mods
         shell: bash
         run: |
           # 显式同名 jar 立即删除
           rm -f mods/macos_input_fixes-*.jar mods/macos-input-fixes-*.jar
+          # 扫描并删除任何携带 macos_input_fixes 的 jar（包括嵌套）
           for jar in mods/*.jar; do
             [[ -f $jar ]] || continue
-            # 2-a 字节级检测：jar 内任何位置出现 macos_input_fixes
+            # 只要 jar 内出现 “macos_input_fixes” 字样即删
             if unzip -l "$jar" 2>/dev/null | grep -iq 'macos_input_fixes'; then
-              echo "Purged (macos_input_fixes): $jar" && rm -- "$jar" && continue
-            fi
-            # 2-b Fabric environment=client 或 jars 嵌套
-            json=$(unzip -p "$jar" fabric.mod.json 2>/dev/null | head -c 65536)
-            if [[ -n $json ]]; then
-              # 嵌套 jars 含 macos_input_fixes
-              nested=$(awk '/"file"/{if(match($0,/macos_input_fixes/i)) exit 1}' <<<"$json" && echo ok || echo bad)
-              [[ $nested == "bad" ]] && { echo "Purged (nested macos_input_fixes): $jar" && rm -- "$jar" && continue; }
-              # environment 字段
-              env=$(awk -F'"' '/"environment"/{getline; print $2}' <<<"$json" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-              [[ $env == "" || $env == "client" ]] && { echo "Purged (Fabric client): $jar" && rm -- "$jar" && continue; }
-            fi
-            # 2-c Forge/Quilt side="CLIENT"
-            if unzip -p "$jar" META-INF/mods.toml 2>/dev/null | head -c 65536 | \
-               grep -qiP 'side\s*=\s*"CLIENT"'; then
-              echo "Purged (Forge/Quilt client): $jar" && rm -- "$jar"
+              echo "Purged (contains macos_input_fixes): $jar"
+              rm -- "$jar"
             fi
           done
 
