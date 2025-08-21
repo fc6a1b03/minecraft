@@ -56,9 +56,10 @@ jobs:
       # 获取 ServerPackCreator 最新 jar
       - name: Download ServerPackCreator
         run: |
-          url=$(curl -s https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest | \
-                jq -r '.assets[] | select(.name | endswith(".jar")) | .browser_download_url')
-          curl -L -o spc.jar "$url"
+          url=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest | \
+          jq -r '.assets[] | select(.name | startswith("ServerPackCreator") and endswith(".jar")) | .browser_download_url')
+          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o spc.jar "$url"
 
       # 生成服务端包
       - name: Generate server pack
