@@ -13,3 +13,4 @@ modlist.html
 node_modules
 logs/**/*.log
 .dockerignore
+modpack_extracted
