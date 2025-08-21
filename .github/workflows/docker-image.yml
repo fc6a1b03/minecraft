@@ -61,7 +61,7 @@ jobs:
       # 下载 整合包文件
       - name: Download modpack
         run: |
-          DOWNLOAD_URL="https://cdn.modrinth.com/data/${{ steps.meta.outputs.project_id }}/versions/${{ steps.meta.outputs.version_id }}/${{ steps.meta.outputs.pack_name }}"  
+          DOWNLOAD_URL="https://cdn.modrinth.com/data/${{ steps.meta.outputs.project_id }}/versions/${{ steps.meta.outputs.version_id }}/${{ steps.meta.outputs.pack_name }}.mrpack"  
           echo "Downloading ModPack: $DOWNLOAD_URL"  
           curl -L "$DOWNLOAD_URL" -o pack.mrpack
 
