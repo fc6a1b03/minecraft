@@ -69,15 +69,14 @@ jobs:
       - name: Generate server pack
         run: |
           java -jar spc.jar \
-            --input pack.mrpack \
-            --output ./server-pack \
+            --input pack.mrpack --output . \
             --minecraftVersion ${{ inputs.GAME_VERSION }} \
             --modLoader ${{ inputs.LOADER }}
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6
         with:
-          context: ./server-pack
+          context: .
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
