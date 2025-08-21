@@ -52,18 +52,16 @@ jobs:
         id: meta
         run: |
           resp=$(curl -s "https://api.modrinth.com/v2/project/${{ inputs.PROJECT_ID }}/version" | jq -r --arg L "fabric" --arg G "1.21.1" 'map(select(.loaders[]==$L and .version_type=="release")) | map(select(.game_versions[] | contains($G))) | sort_by(.date_published) | last')
+          file_url=$(echo "$resp" | jq -r '.files[0].url // empty')
           echo "java=$(echo "$resp" | jq -r 'if (.game_versions[0] // "" | startswith("1.20.5") or startswith("1.20.6") or startswith("1.21")) then "21" else "17" end')" >> $GITHUB_OUTPUT
-          echo "version_id=$(echo "$resp" | jq -r '.id // ""')" >> $GITHUB_OUTPUT
-          echo "pack_name=$(echo "$resp" | jq -r '.name // ""')" >> $GITHUB_OUTPUT
           echo "pack_ver=$(echo "$resp" | jq -r '.version_number // "unknown"')" >> $GITHUB_OUTPUT
-          echo "project_id=$(echo "$resp" | jq -r '.project_id // ""')" >> $GITHUB_OUTPUT
+          echo "file_url=$file_url" >> $GITHUB_OUTPUT
 
       # 下载 整合包文件
       - name: Download modpack
         run: |
-          DOWNLOAD_URL="https://cdn.modrinth.com/data/${{ steps.meta.outputs.project_id }}/versions/${{ steps.meta.outputs.version_id }}/${{ steps.meta.outputs.pack_name }}.mrpack"  
-          echo "Downloading ModPack: $DOWNLOAD_URL"  
-          curl -L "$DOWNLOAD_URL" -o pack.mrpack
+          echo "Downloading ModPack: ${{ steps.meta.outputs.file_url }}"  
+          curl -L "${{ steps.meta.outputs.file_url }}" -o pack.mrpack
 
       # 获取 ServerPackCreator 工具
       - name: Download ServerPackCreator
