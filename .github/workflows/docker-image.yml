@@ -66,10 +66,13 @@ jobs:
       - name: Download ServerPackCreator
         run: |
           CLI_URL=$(curl -fsS https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest |
-            jq -r '.assets[] | 
-              select(.name | startswith("serverpackcreator-api-")) | 
-              .browser_download_url' |
-            head -1)
+          jq -r '.assets[] | 
+            select(.name | startswith("serverpackcreator-api-") and 
+                   (.name | endswith(".jar")) and
+                   (.name | contains("-javadoc") | not) and
+                   (.name | contains("-sources") | not)) | 
+            .browser_download_url' | head -1
+          )
           echo "Downloading ServerPackCreator: $CLI_URL"
           curl -fL -o spc-cli.jar "$CLI_URL"
 
