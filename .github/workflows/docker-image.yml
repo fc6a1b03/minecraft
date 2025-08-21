@@ -75,7 +75,11 @@ jobs:
       # 生成 服务端包
       - name: Generate server pack
         run: |
-          java -jar spc.jar -feelinglucky pack.mrpack --destination .
+          echo "Extracting modpack..."  
+          mkdir -p modpack_extracted
+          unzip -q pack.mrpack -d modpack_extracted  
+          echo "Generating server pack..."  
+          java -jar spc.jar -feelinglucky modpack_extracted --destination .
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
