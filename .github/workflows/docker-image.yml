@@ -59,8 +59,8 @@ jobs:
       # 下载 整合包文件
       - name: Download modpack
         run: |
-          curl -fL \
-            "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" -o pack.mrpack
+          curl -L "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" \
+            -o pack.mrpack
 
       # 获取 ServerPackCreator 工具
       - name: Download ServerPackCreator
