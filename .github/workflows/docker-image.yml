@@ -76,6 +76,8 @@ jobs:
         run: |
           mkdir -p modpack_extracted
           unzip -q pack.mrpack -d modpack_extracted
+          chmod -R u+rwX modpack_extracted
+          chmod -R go+rX modpack_extracted
           java -jar spc.jar -feelinglucky modpack_extracted --destination .
 
       # 构建并推送多架构镜像
