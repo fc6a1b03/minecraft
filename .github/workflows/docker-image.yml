@@ -53,11 +53,16 @@ jobs:
           curl -L "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" \
             -o pack.mrpack
 
+      # 获取 ServerPackCreator 最新 jar
+      - name: Download ServerPackCreator
+        run: |
+          url=$(curl -s https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest | \
+                jq -r '.assets[] | select(.name | endswith(".jar")) | .browser_download_url')
+          curl -L -o spc.jar "$url"
+
       # 生成服务端包
       - name: Generate server pack
         run: |
-          curl -L -o spc.jar \
-            https://github.com/Griefed/ServerPackCreator/releases/latest/download/serverpackcreator-*.jar
           java -jar spc.jar \
             --input pack.mrpack \
             --output ./server-pack \
