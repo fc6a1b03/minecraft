@@ -66,14 +66,14 @@ jobs:
       - name: Download ServerPackCreator
         run: |
             LATEST_VERSION=$(curl -fsS https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest | jq -r '.tag_name')       
-            DOWNLOAD_URL="https://github.com/Griefed/ServerPackCreator/releases/download/$LATEST_VERSION/serverpackcreator-api-$LATEST_VERSION.jar"        
+            DOWNLOAD_URL="https://github.com/Griefed/ServerPackCreator/releases/download/$LATEST_VERSION/serverpackcreator-$LATEST_VERSION.jar"        
             echo "Downloading ServerPackCreator: $DOWNLOAD_URL"
-            curl -fL -o spc-cli.jar "$DOWNLOAD_URL"
+            curl -fL -o spc.jar "$DOWNLOAD_URL"
 
       # 生成 服务端包
       - name: Generate server pack
         run: |
-          java -jar spc-cli.jar --input pack.mrpack --output . \
+          java -jar spc.jar --input pack.mrpack --output . \
             --minecraftVersion ${{ inputs.GAME_VERSION }} --modLoader ${{ inputs.LOADER }}
 
       # 构建并推送多架构镜像
