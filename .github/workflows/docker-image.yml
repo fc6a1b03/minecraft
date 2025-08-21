@@ -24,6 +24,8 @@ jobs:
       contents: read
       packages: write
     env:
+      CI: true
+      TERM: dumb
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/${{ github.event.inputs.PROJECT_ID }}
 
@@ -73,8 +75,7 @@ jobs:
       # 生成 服务端包
       - name: Generate server pack
         run: |
-          java -jar spc.jar --input pack.mrpack --output . \
-            --minecraftVersion ${{ inputs.GAME_VERSION }} --modLoader ${{ inputs.LOADER }}
+          java -jar spc.jar -feelinglucky pack.mrpack --destination .
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
