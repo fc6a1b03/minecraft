@@ -60,19 +60,20 @@ jobs:
       # 获取 ServerPackCreator 工具
       - name: Download ServerPackCreator
         run: |
-          url=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest | \
-          jq -r '.assets[] | select(.name | startswith("ServerPackCreator") and endswith(".jar")) | .browser_download_url')
-          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o spc.jar "$url"
+          CLI_URL=$(curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest \
+          | jq -r '
+            .assets[]
+            | select(.name | test("^serverpackcreator-app-.*\\.jar$"))
+            | .browser_download_url
+          ')
+          curl -L -H "Authorization: Bearer ${GITHUB_TOKEN}" -o spc-cli.jar "$CLI_URL"
 
       # 生成服务端包
       - name: Generate server pack
         run: |
-          java -Dorg.jline.terminal.dumb=true \
-           -jar spc.jar --noGui --headless \
-           --input pack.mrpack --output . \
-           --minecraftVersion ${{ inputs.GAME_VERSION }} \
-           --modLoader ${{ inputs.LOADER }}
+          java -jar spc-cli.jar --input pack.mrpack --output . \
+            --minecraftVersion ${{ inputs.GAME_VERSION }} --modLoader ${{ inputs.LOADER }}
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6
