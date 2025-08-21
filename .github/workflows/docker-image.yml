@@ -47,21 +47,24 @@ jobs:
         with:
           driver-opts: network=host
 
-      # 解析 整合包元数据
-      - name: Resolve metadata  
-        id: meta  
-        run: |  
-          resp=$(curl -s "https://api.modrinth.com/v2/project/better-mc-fabric-bmc3/version" | jq -r --arg L "fabric" --arg G "1.21.1" 'map(select(.loaders[]==$L and .version_type=="release")) | map(select(.game_versions[] | contains($G))) | sort_by(.date_published) | last')  
-          echo "java=$(echo "$resp" | jq -r 'if (.game_versions[0] // "" | startswith("1.20.5") or startswith("1.20.6") or startswith("1.21")) then "21" else "17" end')" >> $GITHUB_OUTPUT  
-          echo "pack_ver=$(echo "$resp" | jq -r '.version_number // "unknown"')" >> $GITHUB_OUTPUT  
-          echo "version_id=$(echo "$resp" | jq -r '.id // ""')" >> $GITHUB_OUTPUT  
-          echo "project_id=$(echo "$resp" | jq -r '.project_id // ""')" >> $GITHUB_OUTPUT  
+      # 解析 整合包元数据  
+      - name: Resolve metadata    
+        id: meta
+        run: |
+          resp=$(curl -s "https://api.modrinth.com/v2/project/better-mc-fabric-bmc3/version" | jq -r --arg L "fabric" --arg G "1.21.1" 'map(select(.loaders[]==$L and .version_type=="release")) | map(select(.game_versions[] | contains($G))) | sort_by(.date_published) | last')
+          echo "Response: $resp"
+          echo "Project ID: $(echo "$resp" | jq -r '.project_id // ""')"
+          echo "Version ID: $(echo "$resp" | jq -r '.id // ""')"
+          echo "java=$(echo "$resp" | jq -r 'if (.game_versions[0] // "" | startswith("1.20.5") or startswith("1.20.6") or startswith("1.21")) then "21" else "17" end')" >> $GITHUB_OUTPUT    
+          echo "pack_ver=$(echo "$resp" | jq -r '.version_number // "unknown"')" >> $GITHUB_OUTPUT
+          echo "version_id=$(echo "$resp" | jq -r '.id // ""')" >> $GITHUB_OUTPUT
+          echo "project_id=$(echo "$resp" | jq -r '.project_id // ""')" >> $GITHUB_OUTPUT
   
-      # 下载 整合包文件
-      - name: Download modpack
-        run: |  
-          DOWNLOAD_URL="https://cdn.modrinth.com/data/NHUidpfR/versions/${{ steps.meta.outputs.version_id }}/download"
-          echo "Downloading ModPack: $DOWNLOAD_URL"
+      # 下载 整合包文件  
+      - name: Download modpack  
+        run: |    
+          DOWNLOAD_URL="https://cdn.modrinth.com/data/${{ steps.meta.outputs.project_id }}/versions/${{ steps.meta.outputs.version_id }}/download"  
+          echo "Downloading ModPack: $DOWNLOAD_URL"  
           curl -L "$DOWNLOAD_URL" -o pack.mrpack
 
       # 获取 ServerPackCreator 工具
