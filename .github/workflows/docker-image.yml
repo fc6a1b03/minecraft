@@ -34,7 +34,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-          cache: gradle
       - name: Docker login
         uses: docker/login-action@v3
         with:
