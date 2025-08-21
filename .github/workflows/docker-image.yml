@@ -51,13 +51,13 @@ jobs:
           echo "pack_ver=$(echo "$resp" | jq -r '.version_number')" >> $GITHUB_OUTPUT
           echo "version_id=$(echo "$resp" | jq -r '.id')" >> $GITHUB_OUTPUT
 
-      # 下载整合包
+      # 下载整合包文件
       - name: Download modpack
         run: |
           curl -L "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" \
             -o pack.mrpack
 
-      # 获取 ServerPackCreator 最新 jar
+      # 获取 ServerPackCreator 工具
       - name: Download ServerPackCreator
         run: |
           url=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -68,10 +68,11 @@ jobs:
       # 生成服务端包
       - name: Generate server pack
         run: |
-          java -jar spc.jar \
-            --input pack.mrpack --output . \
-            --minecraftVersion ${{ inputs.GAME_VERSION }} \
-            --modLoader ${{ inputs.LOADER }}
+          java -Dorg.jline.terminal.dumb=true \
+           -jar spc.jar --noGui --headless \
+           --input pack.mrpack --output . \
+           --minecraftVersion ${{ inputs.GAME_VERSION }} \
+           --modLoader ${{ inputs.LOADER }}
 
       # 构建并推送多架构镜像
       - uses: docker/build-push-action@v6
