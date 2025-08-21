@@ -29,18 +29,24 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-      - uses: docker/login-action@v3
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Docker login
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@v3
-      - uses: actions/setup-java@v4
+      - name: Docker setup
+        uses: docker/setup-buildx-action@v3
         with:
-          distribution: 'temurin'
-          java-version: 21
-      
-      # 解析整合包元数据
+          driver-opts: network=host
+
+      # 解析 整合包元数据
       - name: Resolve metadata
         id: meta
         run: |
@@ -51,31 +57,37 @@ jobs:
           echo "pack_ver=$(echo "$resp" | jq -r '.version_number')" >> $GITHUB_OUTPUT
           echo "version_id=$(echo "$resp" | jq -r '.id')" >> $GITHUB_OUTPUT
 
-      # 下载整合包文件
+      # 下载 整合包文件
       - name: Download modpack
         run: |
-          curl -L "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" \
-            -o pack.mrpack
+          curl -fL \
+            "https://cdn.modrinth.com/data/${{ inputs.PROJECT_ID }}/versions/${{ steps.meta.outputs.version_id }}/download" -o pack.mrpack
 
       # 获取 ServerPackCreator 工具
       - name: Download ServerPackCreator
         run: |
-          CLI_URL=$(curl -s https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest \
-            | jq -r '.assets[] | select(.name | test("^serverpackcreator-api-.*\\.jar$")) | .browser_download_url')
-          curl -L -o spc-cli.jar "$CLI_URL"
+          CLI_URL=$(curl -fsS https://api.github.com/repos/Griefed/ServerPackCreator/releases/latest |
+            jq -r '.assets[] |
+              select(.name | test("^ServerPackCreator-[0-9.]+\.jar$"; "i")) |
+              .browser_download_url' | head -1
+            )
+          echo "Downloading ServerPackCreator from: $CLI_URL"
+          curl -fL -o spc-cli.jar "$CLI_URL"
 
-      # 生成服务端包
+      # 生成 服务端包
       - name: Generate server pack
         run: |
           java -jar spc-cli.jar --input pack.mrpack --output . \
             --minecraftVersion ${{ inputs.GAME_VERSION }} --modLoader ${{ inputs.LOADER }}
 
       # 构建并推送多架构镜像
-      - uses: docker/build-push-action@v6
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
           platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
           build-args: |
             JAVA_VERSION=${{ steps.meta.outputs.java }}
           tags: |
