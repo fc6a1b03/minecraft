@@ -82,6 +82,10 @@ jobs:
           chmod -R a+rX modpack_extracted
           echo "Modpack contents:"
           ls -lahR modpack_extracted
+          # 提取 overrides 内容到根目录
+          if [ -d "modpack_extracted/overrides" ]; then
+            cp -r modpack_extracted/overrides/* modpack_extracted/
+          fi
           # 使用自动模式运行
           java -jar spc.jar -feelinglucky modpack_extracted --destination .
 
