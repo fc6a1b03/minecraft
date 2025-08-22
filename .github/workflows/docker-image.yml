@@ -80,67 +80,10 @@ jobs:
           mkdir -p modpack_extracted
           unzip -q pack.mrpack -d modpack_extracted
           chmod -R a+rX modpack_extracted
-          # 版本号处理
-          MC_VERSION="${{ inputs.GAME_VERSION }}"
-          if [[ ! "$MC_VERSION" =~ \. ]]; then
-            MC_VERSION="${MC_VERSION}.0"
-          elif [[ "$MC_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
-            MC_VERSION="${MC_VERSION}.0"
-          fi
-          # 模组加载器
-          LOADER="${{ inputs.LOADER }}"
-          # 模组加载器版本
-          LOADER_VERSION=$(jq -r '.dependencies | to_entries[] | select(.key | test("fabric-loader|forge|quilt-loader|neoforge"; "i")) | .value' modpack_extracted/modrinth.index.json)
-          # 回退机制
-          if [ -z "$LOADER_VERSION" ] || [ "$LOADER_VERSION" = "null" ]; then
-            LOADER_VERSION="latest"
-            echo "WARNING: 使用 'latest' 作为加载器版本回退值"
-          fi
-          # 创建配置文件
-          cat > spc-config.conf <<EOL
-            # 指向整合包路径，可相对或绝对
-            modpackDir="modpack_extracted"
-            # Minecraft 版本，例如"1.16.5"
-            minecraftVersion="$MC_VERSION"
-            # 服务器使用的模组加载器，必须是"Forge"、"NeoForge"、"Fabric"、"Quilt"或"LegacyFabric"
-            modLoader="$LOADER"
-            # 模组加载器版本，Fabric示例"0.7.3"，Forge示例"36.0.15"
-            modLoaderVersion="$LOADER_VERSION"
-            # 是否在服务器包内包含server-icon.png，true或false
-            includeServerIcon=true
-            # 是否在服务器包内包含server.properties，true或false
-            includeServerProperties=true
-            # 是否创建服务器包的ZIP压缩文件，true或false
-            includeZipCreation=true
-            # 服务器包包含规则
-            [[inclusions]]
-            source="mods"
-            destination=""
-            inclusionFilter=""
-            exclusionFilter=""
-            [[inclusions]]
-            source="config"
-            destination=""
-            inclusionFilter=""
-            exclusionFilter=""
-            [[inclusions]]
-            source="scripts"
-            destination=""
-            inclusionFilter=""
-            exclusionFilter=""
-            [[inclusions]]
-            source="resources"
-            destination=""
-            inclusionFilter=""
-            exclusionFilter=""
-          EOL
-          # 打印配置用于调试  
-          echo "生成的 ServerPackCreator 配置:"  
-          cat spc-config.conf
           echo "Modpack contents:"
           ls -lah modpack_extracted
-          # 使用配置文件和自动模式运行
-          java -jar spc.jar --config spc-config.conf -feelinglucky modpack_extracted --destination .
+          # 使用自动模式运行
+          java -jar spc.jar -feelinglucky modpack_extracted --destination .
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
