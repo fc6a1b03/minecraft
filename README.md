@@ -1,6 +1,6 @@
 这个分支将会使用[Modpacks](https://modrinth.com/modpack)作为构建核心
 
-> 镜像规范：ghcr.io/fc6a1b03/{{ NORMALIZED_NAME }}:{{ MOD_LOADERS }}-{{ MODPACK_VERSION }}-{{ GAME_VERSION }}
+> 镜像规范：ghcr.io/fc6a1b03/{{ NORMALIZED_NAME }}:{{ VersionNumber }}
 
 ### 制作Dockerfile
 - [Dockerfile](Dockerfile)
