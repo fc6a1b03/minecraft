@@ -90,9 +90,7 @@ jobs:
           LOADER_VERSION=$(jq -r '.dependencies | with_entries(select(.key | test("loader"))) | .[]' modpack_extracted/modrinth.index.json)
           [ -z "$LOADER_VERSION" ] && LOADER_VERSION="latest"
           java -jar spc.jar -feelinglucky modpack_extracted --destination . \
-           --minecraft-version "$MC_VERSION" \
-            --modloader "$LOADER" \
-            --modloader-version "$LOADER_VERSION" \
+            --minecraft-version "$MC_VERSION" --modloader "$LOADER" --modloader-version "$LOADER_VERSION" \
             --directories "mods,config,scripts,resources,datapacks,structures,kubejs"
 
       # 构建并推送多架构镜像
