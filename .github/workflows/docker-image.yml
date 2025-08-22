@@ -88,6 +88,8 @@ jobs:
           fi
           # 使用自动模式运行
           java -jar spc.jar -feelinglucky modpack_extracted --destination .
+          echo "root contents:"
+          ls -lah
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
