@@ -79,6 +79,7 @@ jobs:
           # 解压整合包
           mkdir -p modpack_extracted
           unzip -q pack.mrpack -d modpack_extracted
+          chmod -R a+rX modpack_extracted
           # 版本号处理
           MC_VERSION="${{ inputs.GAME_VERSION }}"
           if [[ ! "$MC_VERSION" =~ \. ]]; then
@@ -108,6 +109,8 @@ jobs:
           # 打印配置用于调试
           echo "生成的 ServerPackCreator 配置:"
           cat spc-config.json
+          echo "Modpack contents:"
+          ls -lah modpack_extracted
           # 使用配置文件和自动模式运行
           java -jar spc.jar --config spc-config.json -feelinglucky modpack_extracted --destination .
 
