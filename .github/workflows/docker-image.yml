@@ -140,7 +140,7 @@ jobs:
           echo "Modpack contents:"
           ls -lah modpack_extracted
           # 使用配置文件和自动模式运行
-          java -jar spc.jar --config spc-config.json -feelinglucky modpack_extracted --destination .
+          java -jar spc.jar --config spc-config.conf -feelinglucky modpack_extracted --destination .
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
