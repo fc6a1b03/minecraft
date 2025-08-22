@@ -55,7 +55,7 @@ jobs:
           file_url=$(echo "$resp" | jq -r '.files[0].url // empty')
           echo "file_url=$file_url" >> $GITHUB_OUTPUT
           echo "pack_ver=$(echo "$resp" | jq -r '.version_number // "unknown"' | tr '+' '_')" >> "$GITHUB_OUTPUT"
-          echo "java=$(echo "$resp" | jq -r 'if (.game_versions[0] // "" | startswith("1.20.5") or startswith("1.20.6") or startswith("1.21")) then "21" else "17" end')" >> $GITHUB_OUTPUT  
+          echo "java=$(jq -rc '(.game_versions[0]//"") as $v | if $v>="1.20.5" then "21" else "17" end' <<<"$resp")" >> "$GITHUB_OUTPUT"  
 
       # 下载 整合包文件
       - name: Download modpack
