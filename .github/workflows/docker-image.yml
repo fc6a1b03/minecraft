@@ -73,12 +73,27 @@ jobs:
 
       # 生成 服务端包
       - name: Generate server pack
+        env:
+          SPC_SKIP_CONFIG_CHECK: true
         run: |
           mkdir -p modpack_extracted
           unzip -q pack.mrpack -d modpack_extracted
           chmod -R u+rwX modpack_extracted
           chmod -R go+rX modpack_extracted
-          java -jar spc.jar -feelinglucky modpack_extracted --destination .
+          MC_VERSION="${{ inputs.GAME_VERSION }}"
+          [[ ! "$MC_VERSION" =~ \. ]] && MC_VERSION="${MC_VERSION}.0"
+          LOADER="${{ inputs.LOADER }}"
+          case $LOADER in
+            neoforge) LOADER="NeoForge" ;;
+            *) LOADER="$(tr '[:lower:]' '[:upper:]' <<< ${LOADER:0:1})${LOADER:1}" ;;
+          esac
+          LOADER_VERSION=$(jq -r '.dependencies | with_entries(select(.key | test("loader"))) | .[]' modpack_extracted/modrinth.index.json)
+          [ -z "$LOADER_VERSION" ] && LOADER_VERSION="latest"
+          java -jar spc.jar -feelinglucky modpack_extracted --destination . \
+           --minecraft-version "$MC_VERSION" \
+            --modloader "$LOADER" \
+            --modloader-version "$LOADER_VERSION" \
+            --directories "mods,config,scripts,resources,datapacks,structures,kubejs"
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
