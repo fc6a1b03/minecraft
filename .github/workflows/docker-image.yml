@@ -76,22 +76,40 @@ jobs:
         env:
           SPC_SKIP_CONFIG_CHECK: true
         run: |
+          # 解压整合包
           mkdir -p modpack_extracted
           unzip -q pack.mrpack -d modpack_extracted
-          chmod -R u+rwX modpack_extracted
-          chmod -R go+rX modpack_extracted
+          # 版本号处理
           MC_VERSION="${{ inputs.GAME_VERSION }}"
-          [[ ! "$MC_VERSION" =~ \. ]] && MC_VERSION="${MC_VERSION}.0"
+          if [[ ! "$MC_VERSION" =~ \. ]]; then
+            MC_VERSION="${MC_VERSION}.0"
+          elif [[ "$MC_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            MC_VERSION="${MC_VERSION}.0"
+          fi
+          # 模组加载器
           LOADER="${{ inputs.LOADER }}"
-          case $LOADER in
-            neoforge) LOADER="NeoForge" ;;
-            *) LOADER="$(tr '[:lower:]' '[:upper:]' <<< ${LOADER:0:1})${LOADER:1}" ;;
-          esac
-          LOADER_VERSION=$(jq -r '.dependencies | with_entries(select(.key | test("loader"))) | .[]' modpack_extracted/modrinth.index.json)
-          [ -z "$LOADER_VERSION" ] && LOADER_VERSION="latest"
-          java -jar spc.jar -feelinglucky modpack_extracted --destination . \
-            --minecraft-version "$MC_VERSION" --modloader "$LOADER" --modloader-version "$LOADER_VERSION" \
-            --directories "mods,config,scripts,resources,datapacks,structures,kubejs"
+          # 模组加载器版本
+          LOADER_VERSION=$(jq -r '.dependencies | to_entries[] | select(.key | test("fabric-loader|forge|quilt-loader|neoforge"; "i")) | .value' modpack_extracted/modrinth.index.json)
+          # 回退机制
+          if [ -z "$LOADER_VERSION" ] || [ "$LOADER_VERSION" = "null" ]; then
+            LOADER_VERSION="latest"
+            echo "WARNING: 使用 'latest' 作为加载器版本回退值"
+          fi
+          # 创建配置文件
+          cat > spc-config.json <<EOL
+          {
+            "minecraftVersion": "$MC_VERSION",
+            "modLoader": "$LOADER",
+            "modLoaderVersion": "$LOADER_VERSION",
+            "directoriesToInclude": ["mods", "config", "scripts", "resources"],
+            "serverPackFormat": "ZIP"
+          }
+          EOL
+          # 打印配置用于调试
+          echo "生成的 ServerPackCreator 配置:"
+          cat spc-config.json
+          # 使用配置文件和自动模式运行
+          java -jar spc.jar --config spc-config.json -feelinglucky modpack_extracted --destination .
 
       # 构建并推送多架构镜像
       - name: Build and push Docker image
