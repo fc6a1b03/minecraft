@@ -15,20 +15,38 @@ RUN rm -rf server.properties eula.txt logs/*
 COPY server.properties .
 RUN echo "eula=true" > eula.txt
 
+# JVM 配置说明：
+# - 基于 Folia 官方推荐的 JVM 参数 (https://fill.papermc.io/v3/projects/folia/versions/{version})
+# - 针对 2C6G 机器优化：总内存 6G，分配 4G 给堆内存，保留 2G 给系统和元空间
+# - 使用 G1GC (官方推荐)
 ENV JVM_OPTS="\
 -server \
--Xms1G \
--Xmx6G \
--XX:+UseShenandoahGC \
+-Xms4G \
+-Xmx4G \
+-XX:+UseG1GC \
 -XX:+AlwaysPreTouch \
 -XX:+DisableExplicitGC \
 -XX:+ParallelRefProcEnabled \
--XX:+UseStringDeduplication \
--XX:+UseLargePages \
--XX:LargePageSizeInBytes=2M \
+-XX:+PerfDisableSharedMem \
+-XX:+UnlockExperimentalVMOptions \
+-XX:G1HeapRegionSize=8M \
+-XX:G1HeapWastePercent=5 \
+-XX:G1MaxNewSizePercent=40 \
+-XX:G1MixedGCCountTarget=4 \
+-XX:G1MixedGCLiveThresholdPercent=90 \
+-XX:G1NewSizePercent=30 \
+-XX:G1RSetUpdatingPauseTimePercent=5 \
+-XX:G1ReservePercent=20 \
+-XX:InitiatingHeapOccupancyPercent=15 \
+-XX:MaxGCPauseMillis=200 \
+-XX:MaxTenuringThreshold=1 \
+-XX:SurvivorRatio=32 \
 -XX:MetaspaceSize=256M \
 -XX:MaxMetaspaceSize=512M \
 -XX:ReservedCodeCacheSize=256M \
+-XX:+UseStringDeduplication \
+-XX:+UseLargePages \
+-XX:LargePageSizeInBytes=2M \
 -XX:+OptimizeStringConcat \
 -XX:+UseCompressedOops \
 -XX:+UseNUMA \
