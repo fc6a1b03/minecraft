@@ -38,10 +38,7 @@ ENV JVM_OPTS="\
 -Dpaper.settings.async-chunks=true \
 -Dpaper.settings.async-entities=true" \
     TZ=Asia/Shanghai
-
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
-
-RUN mkdir -p /server/plugins /server/config /data
 
 ENTRYPOINT ["sh", "-c", "exec java ${JVM_OPTS} -jar folia-server.jar --nogui --universe /data/"]
