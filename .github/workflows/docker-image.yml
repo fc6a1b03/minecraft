@@ -53,27 +53,30 @@ jobs:
           echo ">>> 最新 Minecraft 版本: $MC_VERSION"
         fi
         echo ">>> 获取 Folia 可用版本列表..."
-        FOLIA_VERSIONS=$(curl -fsSL "$FOLIA_API" | jq -r '.versions[]')
+        # {"versions": {"1.21": ["1.21.11", ...], "1.20": [...]}}
+        FOLIA_VERSIONS=$(curl -fsSL "$FOLIA_API" | jq -r '.versions | to_entries | map(.value[]) | .[]')
         if echo "$FOLIA_VERSIONS" | grep -qx "$MC_VERSION"; then
           TARGET_VERSION="$MC_VERSION"
           echo ">>> 找到精确匹配的 Folia 版本: $TARGET_VERSION"
         else
           MAJOR_VERSION=$(echo "$MC_VERSION" | cut -d. -f1-2)
-          TARGET_VERSION=$(echo "$FOLIA_VERSIONS" | grep "^${MAJOR_VERSION}" | tail -1 || true)
+          TARGET_VERSION=$(echo "$FOLIA_VERSIONS" | grep "^${MAJOR_VERSION}" | head -1 || true)
           if [ -z "$TARGET_VERSION" ]; then
-            TARGET_VERSION=$(echo "$FOLIA_VERSIONS" | tail -1)
+            TARGET_VERSION=$(echo "$FOLIA_VERSIONS" | head -1)
             echo ">>> 警告: 未找到 $MC_VERSION 的 Folia 版本，使用最新版本: $TARGET_VERSION"
           else
             echo ">>> 使用匹配的 Folia 版本: $TARGET_VERSION (对应 MC $MC_VERSION)"
           fi
         fi
         echo ">>> 获取 Folia $TARGET_VERSION 的构建列表..."
+        # {"builds": [13, 12, 11, ...]}，第一个是最新的
         BUILDS=$(curl -fsSL "$FOLIA_API/versions/${TARGET_VERSION}" | jq -r '.builds[]')
-        LATEST_BUILD=$(echo "$BUILDS" | tail -1)
+        LATEST_BUILD=$(echo "$BUILDS" | head -1)
         echo ">>> 最新构建号: $LATEST_BUILD"
         echo ">>> 获取构建详情..."
         BUILD_INFO=$(curl -fsSL "$FOLIA_API/versions/${TARGET_VERSION}/builds/${LATEST_BUILD}")
-        JAR_NAME=$(echo "$BUILD_INFO" | jq -r '.downloads.application.name')
+        # 文件名在 downloads.server:default.name，格式: folia-{mc版本}-编译号.jar
+        JAR_NAME=$(echo "$BUILD_INFO" | jq -r '.downloads["server:default"].name')
         echo ">>> 目标文件: $JAR_NAME"
         echo "TARGET_VERSION=$TARGET_VERSION" >> $GITHUB_ENV
         echo "LATEST_BUILD=$LATEST_BUILD" >> $GITHUB_ENV

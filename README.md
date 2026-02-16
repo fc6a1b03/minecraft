@@ -7,15 +7,15 @@
 Folia 通过 PaperMC API 分发：
 
 1. **获取 Folia 可用版本列表**
-    - `https://api.papermc.io/v2/projects/folia`
+    - `https://fill.papermc.io/v3/projects/folia`
 2. **获取指定版本的构建列表**
-    - `https://api.papermc.io/v2/projects/folia/versions/{version}`
+    - `https://fill.papermc.io/v3/projects/folia/versions/{version}`
 3. **获取指定构建的下载信息**
-    - `https://api.papermc.io/v2/projects/folia/versions/{version}/builds/{build}`
+    - `https://fill.papermc.io/v3/projects/folia/versions/{version}/builds/{build}`
 4. **下载地址**
-    - `https://api.papermc.io/v2/projects/folia/versions/{version}/builds/{build}/downloads/folia-{version}-{build}.jar`
+    - `https://fill.papermc.io/v3/projects/folia/versions/{version}/builds/{build}/downloads/folia-{version}-{build}.jar`
 
-完整示例：`https://api.papermc.io/v2/projects/folia/versions/1.21.11/builds/6/downloads/folia-1.21.11-6.jar`
+完整示例：`https://fill.papermc.io/v3/projects/folia/versions/1.21.11/builds/6/downloads/folia-1.21.11-6.jar`
 
 ### 制作Dockerfile
 
