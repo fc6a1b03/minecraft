@@ -1,4 +1,4 @@
-name: Folia Docker Image CI
+name: Minecraft Docker Image CI
 
 on:
   schedule:
