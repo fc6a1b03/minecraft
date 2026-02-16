@@ -11,9 +11,10 @@ WORKDIR /server
 EXPOSE 25565
 
 COPY --from=builder server .
-RUN rm -rf server.properties eula.txt logs/*
+RUN rm -rf server.properties eula.txt logs/* bukkit.yml purpur.yml spigot.yml ops.json
 COPY server.properties .
 RUN echo "eula=true" > eula.txt
+RUN touch bukkit.yml purpur.yml spigot.yml ops.json
 
 # JVM 配置说明：
 # - 基于 Folia 官方推荐的 JVM 参数 (https://fill.papermc.io/v3/projects/folia/versions/{version})
