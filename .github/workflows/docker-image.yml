@@ -77,10 +77,13 @@ jobs:
         BUILD_INFO=$(curl -fsSL "$FOLIA_API/versions/${TARGET_VERSION}/builds/${LATEST_BUILD}")
         # 文件名在 downloads.server:default.name，格式: folia-{mc版本}-编译号.jar
         JAR_NAME=$(echo "$BUILD_INFO" | jq -r '.downloads["server:default"].name')
+        DOWNLOAD_URL=$(echo "$BUILD_INFO" | jq -r '.downloads["server:default"].url')
         echo ">>> 目标文件: $JAR_NAME"
+        echo ">>> 下载地址: $DOWNLOAD_URL"
         echo "TARGET_VERSION=$TARGET_VERSION" >> $GITHUB_ENV
         echo "LATEST_BUILD=$LATEST_BUILD" >> $GITHUB_ENV
         echo "JAR_NAME=$JAR_NAME" >> $GITHUB_ENV
+        echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
 
     - name: Check if version is updated
       id: check_version
@@ -139,9 +142,8 @@ jobs:
     - name: Download Folia server.jar
       if: env.BUILD_NEEDED == 'true'
       run: |
-        DOWNLOAD_URL="https://fill.papermc.io/v3/projects/folia/versions/${{ env.TARGET_VERSION }}/builds/${{ env.LATEST_BUILD }}/downloads/${{ env.JAR_NAME }}"
-        echo ">>> 下载 Folia: $DOWNLOAD_URL"
-        curl -fsSL -o folia-server.jar "$DOWNLOAD_URL"
+        echo ">>> 下载 Folia: ${{ env.DOWNLOAD_URL }}"
+        curl -fsSL -o folia-server.jar "${{ env.DOWNLOAD_URL }}"
         echo ">>> 下载完成，文件大小: $(ls -lh folia-server.jar | awk '{print $5}')"
 
     - name: Generate random RCON password
