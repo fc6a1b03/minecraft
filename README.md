@@ -45,5 +45,5 @@ Folia 通过 PaperMC API 分发：
 
 ### 注意事项
 
-- Folia 采用区域化多线程架构，部分依赖主线程的插件可能不兼容
+- Folia 采用区域化多线程架构
 - 文档地址：https://docs.papermc.io/folia
