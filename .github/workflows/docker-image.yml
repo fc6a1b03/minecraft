@@ -1,146 +1,166 @@
-name: Minecraft Docker Image CI
+name: Folia Docker Image CI
 
-# 触发配置
 on:
   schedule:
     - cron: '0 0 */3 * *'
   workflow_dispatch:
     inputs:
-      LATEST_VERSION:
-        description: '要构建的Minecraft版本；只打版本镜像且会跳过`检查版本是否更新`和`记录最后构建版本`步骤'
+      MC_VERSION:
+        description: '要构建的 Minecraft 版本；指定后将跳过版本自动检测'
         required: false
         default: ''
         type: string
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: minecraft-folia
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.ref }} 
+    - name: Checkout repository
+      uses: actions/checkout@v6
 
-    # Step 1: 设置Docker Buildx
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    # Step 2: 为多平台构建安装QEMU
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
 
-    # Step 3: 设置仓库
-    - name: Set registry environment variable
-      run: echo "REGISTRY=ghcr.io" >> $GITHUB_ENV
-    
-    # Step 4: 登录Docker Hub
-    # - name: Login to Docker Hub
-    #   uses: docker/login-action@v3
-    #   with:
-    #     username: ${{ secrets.DOCKER_USERNAME }}
-    #     password: ${{ secrets.DOCKER_PASSWORD }}
-
-    # Step 4: 登录本仓库
-    - name: Log in to the Container registry
+    - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
-      id: docker-login
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    # Step 5: 获取最新的Purpur版本信息
-    - name: Fetch Purpur version info
+    - name: Fetch Folia version info
       id: version_info
-      env:
-        PURPUR_API_BASE: "https://api.purpurmc.org/v2/purpur"
       run: |
-        # 确定Minecraft版本
-        if [ -n "${{ github.event.inputs.LATEST_VERSION }}" ]; then
-          LATEST_VERSION="${{ github.event.inputs.LATEST_VERSION }}"
+        set -euo pipefail
+        FOLIA_API="https://api.papermc.io/v2/projects/folia"
+        if [ -n "${{ github.event.inputs.MC_VERSION }}" ]; then
+          MC_VERSION="${{ github.event.inputs.MC_VERSION }}"
+          echo ">>> 使用手动指定的 Minecraft 版本: $MC_VERSION"
         else
-          # 获取最新的Minecraft版本（通过metadata.current字段）
-          LATEST_VERSION=$(curl -s $PURPUR_API_BASE | jq -r '.metadata.current')
+          echo ">>> 从 Mojang 获取最新 Minecraft 版本..."
+          MC_VERSION=$(curl -fsSL https://launchermeta.mojang.com/mc/game/version_manifest.json | jq -r '.latest.release')
+          echo ">>> 最新 Minecraft 版本: $MC_VERSION"
         fi
-        # 生成下载URL
-        SERVER_URL="$PURPUR_API_BASE/$LATEST_VERSION/latest/download"
-        # 输出到环境变量
-        echo "SERVER_URL=$SERVER_URL" >> $GITHUB_ENV
-        echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
+        echo ">>> 获取 Folia 可用版本列表..."
+        FOLIA_VERSIONS=$(curl -fsSL "$FOLIA_API" | jq -r '.versions[]')
+        if echo "$FOLIA_VERSIONS" | grep -qx "$MC_VERSION"; then
+          TARGET_VERSION="$MC_VERSION"
+          echo ">>> 找到精确匹配的 Folia 版本: $TARGET_VERSION"
+        else
+          MAJOR_VERSION=$(echo "$MC_VERSION" | cut -d. -f1-2)
+          TARGET_VERSION=$(echo "$FOLIA_VERSIONS" | grep "^${MAJOR_VERSION}" | tail -1 || true)
+          if [ -z "$TARGET_VERSION" ]; then
+            TARGET_VERSION=$(echo "$FOLIA_VERSIONS" | tail -1)
+            echo ">>> 警告: 未找到 $MC_VERSION 的 Folia 版本，使用最新版本: $TARGET_VERSION"
+          else
+            echo ">>> 使用匹配的 Folia 版本: $TARGET_VERSION (对应 MC $MC_VERSION)"
+          fi
+        fi
+        echo ">>> 获取 Folia $TARGET_VERSION 的构建列表..."
+        BUILDS=$(curl -fsSL "$FOLIA_API/versions/${TARGET_VERSION}" | jq -r '.builds[]')
+        LATEST_BUILD=$(echo "$BUILDS" | tail -1)
+        echo ">>> 最新构建号: $LATEST_BUILD"
+        echo ">>> 获取构建详情..."
+        BUILD_INFO=$(curl -fsSL "$FOLIA_API/versions/${TARGET_VERSION}/builds/${LATEST_BUILD}")
+        JAR_NAME=$(echo "$BUILD_INFO" | jq -r '.downloads.application.name')
+        echo ">>> 目标文件: $JAR_NAME"
+        echo "TARGET_VERSION=$TARGET_VERSION" >> $GITHUB_ENV
+        echo "LATEST_BUILD=$LATEST_BUILD" >> $GITHUB_ENV
+        echo "JAR_NAME=$JAR_NAME" >> $GITHUB_ENV
 
-    # Step 6: 检查版本是否更新
     - name: Check if version is updated
       id: check_version
       run: |
-        # 检查是否手动输入了 LATEST_VERSION
-        if [ -z "${{ github.event.inputs.LATEST_VERSION }}" ]; then
-          # 尝试从`last_built_version.txt`中获取版本号
-          if [ -f last_built_version.txt ]; then
-            LAST_BUILT_VERSION=$(cat last_built_version.txt)
-          else
-            LAST_BUILT_VERSION="none"
-          fi
-          # 检查是否需要继续构建
-          if [ "$LAST_BUILT_VERSION" = "none" ]; then
-            # 没有旧版本时继续构建
-            echo "BUILD_NEEDED=true" >> $GITHUB_ENV
-          elif [ "$LATEST_VERSION" \> "$LAST_BUILT_VERSION" ]; then
-            # 如果新版本大于旧版本则继续构建
-            echo "BUILD_NEEDED=true" >> $GITHUB_ENV
-          else
-            # 如果新版本不大于旧版本则跳过构建
-            echo "BUILD_NEEDED=false" >> $GITHUB_ENV
-          fi
-        else
-          # 手动输入版本则直接构建
+        set -euo pipefail
+        # 语义化版本比较函数: 如果 v1 > v2 返回 0，否则返回 1
+        version_gt() {
+            local v1="$1"
+            local v2="$2"
+            # 将版本号按点分割成数组
+            IFS='.' read -ra V1_PARTS <<< "$v1"
+            IFS='.' read -ra V2_PARTS <<< "$v2"
+            local len1=${#V1_PARTS[@]}
+            local len2=${#V2_PARTS[@]}
+            local max_len=$len1
+            [ $len2 -gt $max_len ] && max_len=$len2
+            for ((i=0; i<max_len; i++)); do
+                local p1=0
+                local p2=0
+                [ $i -lt $len1 ] && p1=${V1_PARTS[$i]}
+                [ $i -lt $len2 ] && p2=${V2_PARTS[$i]}
+                if [ "$p1" -gt "$p2" ]; then
+                    return 0  # v1 > v2
+                elif [ "$p1" -lt "$p2" ]; then
+                    return 1  # v1 < v2
+                fi
+            done
+            return 1  # v1 == v2
+        }
+        CURRENT_VERSION="${{ env.TARGET_VERSION }}"
+        echo ">>> 当前目标 Minecraft 版本: $CURRENT_VERSION"
+        # 手动指定版本时直接构建
+        if [ -n "${{ github.event.inputs.MC_VERSION }}" ]; then
+          echo ">>> 手动指定版本，强制构建"
           echo "BUILD_NEEDED=true" >> $GITHUB_ENV
+          echo "SKIP_VERSION_UPDATE=true" >> $GITHUB_ENV
+          exit 0
+        fi
+        # 读取上次构建版本
+        if [ -f last_built_version.txt ]; then
+          LAST_BUILT_VERSION=$(cat last_built_version.txt | tr -d '[:space:]')
+          echo ">>> 上次构建版本: $LAST_BUILT_VERSION"
+        else
+          LAST_BUILT_VERSION="0.0.0"
+          echo ">>> 无上次构建记录"
+        fi
+        # 语义化版本比较
+        if version_gt "$CURRENT_VERSION" "$LAST_BUILT_VERSION"; then
+          echo ">>> 版本已更新 ($LAST_BUILT_VERSION -> $CURRENT_VERSION)，需要构建"
+          echo "BUILD_NEEDED=true" >> $GITHUB_ENV
+        else
+          echo ">>> 版本未变化或更低，跳过构建"
+          echo "BUILD_NEEDED=false" >> $GITHUB_ENV
         fi
 
-    # Step 7: 下载 server.jar
-    - name: Download server.jar
+    - name: Download Folia server.jar
       if: env.BUILD_NEEDED == 'true'
       run: |
-        curl -fSL -o purpur-server.jar "$SERVER_URL"
+        DOWNLOAD_URL="https://api.papermc.io/v2/projects/folia/versions/${{ env.TARGET_VERSION }}/builds/${{ env.LATEST_BUILD }}/downloads/${{ env.JAR_NAME }}"
+        echo ">>> 下载 Folia: $DOWNLOAD_URL"
+        curl -fsSL -o folia-server.jar "$DOWNLOAD_URL"
+        echo ">>> 下载完成，文件大小: $(ls -lh folia-server.jar | awk '{print $5}')"
 
-    # Step 8: 下载 PurpurExtras
-    - name: Fetch and download latest PurpurExtras
-      id: fetch_and_download
-      env:
-        MODRINTH_API: "https://api.modrinth.com/v2"
-      run: |
-        response=$(curl -sfLS "$MODRINTH_API/project/purpurextras/version?game_versions=${{ env.LATEST_VERSION }}&loaders=purpur")
-        if [ -z "$response" ] || [ "$response" = "[]" ]; then
-          echo "::error::No versions found for MC ${{ env.LATEST_VERSION }} with loader purpur"
-          exit 1
-        fi
-        curl -sfL -o $(echo "$response" | jq -r '.[0].files[0].filename') "$(echo "$response" | jq -r '.[0].files[0].url')"
-
-    # Step 9: 生成随机RCON密码
     - name: Generate random RCON password
       if: env.BUILD_NEEDED == 'true'
-      id: generate_password
       run: |
-        RCON_PASSWORD=$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 30)
+        RCON_PASSWORD=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | head -c 32)
         echo "RCON_PASSWORD=$RCON_PASSWORD" >> $GITHUB_ENV
+        sed -i "s/^rcon.password=.*/rcon.password=${RCON_PASSWORD}/" server.properties
+        echo ">>> RCON 密码已更新"
 
-    # Step 10: 将随机生成的密码写入 server.properties
-    - name: Update server.properties with RCON password
-      if: env.BUILD_NEEDED == 'true'
-      run: |
-        sed -i '/^rcon.password=/c\rcon.password=${{ env.RCON_PASSWORD }}' server.properties
-
-    # Step 11: 准备 Docker 镜像标签
     - name: Prepare Docker tags
-      id: prepare_tags
       if: env.BUILD_NEEDED == 'true'
       run: |
-        if [ -n "${{ github.event.inputs.LATEST_VERSION }}" ]; then
-          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:${{ github.event.inputs.LATEST_VERSION }}" >> $GITHUB_ENV
+        REPO_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        if [ -n "${{ github.event.inputs.MC_VERSION }}" ]; then
+          TAGS="${{ env.REGISTRY }}/${REPO_LOWER}/${{ env.IMAGE_NAME }}:${{ env.TARGET_VERSION }}"
         else
-          echo "TAGS=${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:latest,${{ env.REGISTRY }}/${{ github.repository_owner }}/minecraft-server-purpur:${{ env.LATEST_VERSION }}" >> $GITHUB_ENV
+          TAGS="${{ env.REGISTRY }}/${REPO_LOWER}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${REPO_LOWER}/${{ env.IMAGE_NAME }}:${{ env.TARGET_VERSION }}"
         fi
-    
-    # Step 12: 为多种架构构建和推送Docker镜像
+        echo "TAGS=$TAGS" >> $GITHUB_ENV
+        echo ">>> Docker 标签: $TAGS"
+
     - name: Build and push Docker image
       if: env.BUILD_NEEDED == 'true'
       uses: docker/build-push-action@v6
@@ -149,16 +169,33 @@ jobs:
         push: true
         tags: ${{ env.TAGS }}
         platforms: linux/amd64,linux/arm64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-    # Step 13: 更新记录的最后构建版本
     - name: Update last built version
-      if: env.BUILD_NEEDED == 'true' && github.event.inputs.LATEST_VERSION == ''
+      if: env.BUILD_NEEDED == 'true' && env.SKIP_VERSION_UPDATE != 'true'
       run: |
-        echo $LATEST_VERSION > last_built_version.txt
+        echo "${{ env.TARGET_VERSION }}" > last_built_version.txt
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
         git add last_built_version.txt
-        git commit -m "Update last built version to $LATEST_VERSION"
-        git push --force
+        if git diff --cached --quiet; then
+          echo ">>> 无变更需要提交"
+        else
+          git commit -m "chore: update Minecraft to ${{ env.TARGET_VERSION }}"
+          git push
+          echo ">>> 版本记录已更新到: ${{ env.TARGET_VERSION }}"
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build summary
+      if: always()
+      run: |
+        echo "================================"
+        echo "       构建摘要"
+        echo "================================"
+        echo "构建状态: ${{ env.BUILD_NEEDED == 'true' && '已执行' || '已跳过' }}"
+        echo "Minecraft 版本: ${{ env.TARGET_VERSION || 'N/A' }}"
+        echo "Folia 构建号: ${{ env.LATEST_BUILD || 'N/A' }}"
+        echo "================================"

@@ -1,31 +1,49 @@
-这个分支将会使用[Purpur](https://purpurmc.org)作为模组插件
+这个分支将会使用[Folia](https://github.com/PaperMC/Folia)作为服务端
 
-### 获取`Purpur`文件
-1. 获取`Purpur`下载地址
-    - 地址为：`https://api.purpurmc.org/v2/purpur/{minecraft.version}/{purpur.version}/download`
-    - `minecraft.version`可通过`https://api.purpurmc.org/v2/purpur`地址查询
-    - `purpur.version`可通过`https://api.purpurmc.org/v2/purpur/1.21.7`地址查询；当然，也可以直接使用`latest`获取适应`minecraft`的最新`purpur`版本，如：`api.purpurmc.org/v2/purpur/1.21.7/latest`
-    - 以上确认之后可在最后补充`/download`，请求后即可获取`Purpur`文件
+> Folia 是 Paper 的分支，专为高性能服务器设计，采用区域化多线程架构。
+
+### 获取`Folia`文件
+
+Folia 通过 PaperMC API 分发：
+
+1. **获取 Folia 可用版本列表**
+    - `https://api.papermc.io/v2/projects/folia`
+2. **获取指定版本的构建列表**
+    - `https://api.papermc.io/v2/projects/folia/versions/{version}`
+3. **获取指定构建的下载信息**
+    - `https://api.papermc.io/v2/projects/folia/versions/{version}/builds/{build}`
+4. **下载地址**
+    - `https://api.papermc.io/v2/projects/folia/versions/{version}/builds/{build}/downloads/folia-{version}-{build}.jar`
+
+完整示例：`https://api.papermc.io/v2/projects/folia/versions/1.21.11/builds/6/downloads/folia-1.21.11-6.jar`
 
 ### 制作Dockerfile
+
 - [Dockerfile](Dockerfile)
-- docker build -t minecraft-server .
-- docker run -d --restart=unless-stopped -v /data/:/data/ -p 25565:25565 -p 25575:25575 minecraft-server-purpur
+- `docker build -t minecraft-folia .`
+- `docker run -d --restart=unless-stopped -v /data/:/data/ -p 25565:25565 -p 25575:25575 minecraft-folia`
 
 ### 编写server.properties文件
+
 - [properties详解](https://minecraft.fandom.com/zh/wiki/Server.properties)
 - [server.properties](server.properties)
 
 ### 使用说明
-- 世界资源默认读取`/data/`路径，可选择 -v /data/:/data/
-- 配置文件`server.properties`放置与server.jar所在的目录中，可选择 -v /server/server.properties:/server/server.properties
-- 插件文件默认读取`/server/plugins/`路径，可选择 -v /server/plugins:/server/plugins
-  - `PurpurExtras.jar`基础插件会自动添加到plugins中，配置挂载也不会影响。
-- 模组配置文件默认读取`/server/config/`，可选择 -v /server/config:/server/config
+
+- 世界资源默认读取`/data/`路径，可选择 `-v /data/:/data/`
+- 配置文件`server.properties`放置与 server.jar 所在的目录中，可选择
+  `-v /server/server.properties:/server/server.properties`
+- 插件文件默认读取`/server/plugins/`路径，可选择 `-v /server/plugins:/server/plugins`
+- 配置文件默认读取`/server/config/`，可选择 `-v /server/config:/server/config`
 - 端口都按官方默认
-  - server-port=25565，可选择 -p 25565:25565
-  - rcon.port=25575，可选择 -p 25575:25575
-- RCON远程访问密码，每次构建镜像都会生成一个随机的 30 位大小写字母和数字组合的密码，基于`tr -dc 'A-Za-z0-9'`
-  - 可选择
-    1. 通过自有配置覆盖来修改密码
-    2. 通过`docker exec -it minecraft-server-purpur cat /server/server.properties`查询密码
+    - server-port=25565，可选择 `-p 25565:25565`
+    - rcon.port=25575，可选择 `-p 25575:25575`
+- RCON远程访问密码，每次构建镜像都会生成一个随机的 32 位大小写字母和数字组合的密码
+    - 可选择
+        1. 通过自有配置覆盖来修改密码
+        2. 通过`docker exec -it minecraft-folia cat /server/server.properties`查询密码
+
+### 注意事项
+
+- Folia 采用区域化多线程架构，部分依赖主线程的插件可能不兼容
+- 文档地址：https://docs.papermc.io/folia
