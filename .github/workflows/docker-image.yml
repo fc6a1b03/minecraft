@@ -43,7 +43,7 @@ jobs:
       id: version_info
       run: |
         set -euo pipefail
-        FOLIA_API="https://api.papermc.io/v2/projects/folia"
+        FOLIA_API="https://fill.papermc.io/v3/projects/folia"
         if [ -n "${{ github.event.inputs.MC_VERSION }}" ]; then
           MC_VERSION="${{ github.event.inputs.MC_VERSION }}"
           echo ">>> 使用手动指定的 Minecraft 版本: $MC_VERSION"
@@ -136,7 +136,7 @@ jobs:
     - name: Download Folia server.jar
       if: env.BUILD_NEEDED == 'true'
       run: |
-        DOWNLOAD_URL="https://api.papermc.io/v2/projects/folia/versions/${{ env.TARGET_VERSION }}/builds/${{ env.LATEST_BUILD }}/downloads/${{ env.JAR_NAME }}"
+        DOWNLOAD_URL="https://fill.papermc.io/v3/projects/folia/versions/${{ env.TARGET_VERSION }}/builds/${{ env.LATEST_BUILD }}/downloads/${{ env.JAR_NAME }}"
         echo ">>> 下载 Folia: $DOWNLOAD_URL"
         curl -fsSL -o folia-server.jar "$DOWNLOAD_URL"
         echo ">>> 下载完成，文件大小: $(ls -lh folia-server.jar | awk '{print $5}')"
