@@ -24,6 +24,9 @@ ENV JVM_OPTS="\
 -Xms4G \
 -Xmx4G \
 -XX:+UseG1GC \
+-XX:ParallelGCThreads=2 \
+-XX:ConcGCThreads=1 \
+-XX:+UseDynamicNumberOfGCThreads \
 -XX:+AlwaysPreTouch \
 -XX:+DisableExplicitGC \
 -XX:+ParallelRefProcEnabled \
@@ -41,20 +44,24 @@ ENV JVM_OPTS="\
 -XX:MaxGCPauseMillis=200 \
 -XX:MaxTenuringThreshold=1 \
 -XX:SurvivorRatio=32 \
+-XX:+UseStringDeduplication \
+-XX:StringDeduplicationAgeThreshold=1 \
 -XX:MetaspaceSize=256M \
 -XX:MaxMetaspaceSize=512M \
 -XX:ReservedCodeCacheSize=256M \
--XX:+UseStringDeduplication \
 -XX:+UseLargePages \
 -XX:LargePageSizeInBytes=2M \
+-XX:+UseTransparentHugePages \
 -XX:+OptimizeStringConcat \
 -XX:+UseCompressedOops \
 -XX:+UseNUMA \
+-XX:+UseVectorApi \
 -Djava.awt.headless=true \
 -Dfile.encoding=UTF-8 \
 -Djava.net.preferIPv4Stack=true \
 -Dpaper.settings.async-chunks=true \
--Dpaper.settings.async-entities=true" \
+-Dpaper.settings.async-entities=true \
+-Djdk.incubator.vector.VECTOR_ACCESS_OOB_CHECK=0" \
     TZ=Asia/Shanghai
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
     && echo $TZ > /etc/timezone
