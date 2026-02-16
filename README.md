@@ -12,10 +12,9 @@ Folia 通过 PaperMC API 分发：
     - `https://fill.papermc.io/v3/projects/folia/versions/{version}`
 3. **获取指定构建的下载信息**
     - `https://fill.papermc.io/v3/projects/folia/versions/{version}/builds/{build}`
-4. **下载地址**
-    - `https://fill.papermc.io/v3/projects/folia/versions/{version}/builds/{build}/downloads/folia-{version}-{build}.jar`
+    - 返回 JSON 中包含 `$.downloads["server:default"].url` 字段，即为直接下载地址
 
-完整示例：`https://fill.papermc.io/v3/projects/folia/versions/1.21.11/builds/6/downloads/folia-1.21.11-6.jar`
+完整示例：`https://fill-data.papermc.io/v1/objects/xxxxx/folia-1.21.11-13.jar`
 
 ### 制作Dockerfile
 
