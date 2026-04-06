@@ -6,7 +6,7 @@ RUN mkdir -p /temp/cache && java -jar fabric-server.jar --nogui --universe /temp
 
 ################################
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 WORKDIR server
 Expose 25565
 
