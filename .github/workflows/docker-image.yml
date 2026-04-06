@@ -17,17 +17,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         ref: ${{ github.ref }} 
 
     # Step 1: 设置Docker Buildx
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
 
     # Step 2: 为多平台构建安装QEMU
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
 
     # Step 3: 设置仓库
     - name: Set registry environment variable
@@ -42,7 +42,7 @@ jobs:
 
     # Step 5: 登录本仓库
     - name: Log in to the Container registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       id: docker-login
       with:
         registry: ${{ env.REGISTRY }}
@@ -182,7 +182,7 @@ jobs:
     # Step 12: 为多种架构构建和推送Docker镜像
     - name: Build and push Docker image
       if: env.BUILD_NEEDED == 'true'
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         push: true
