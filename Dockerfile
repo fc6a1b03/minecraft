@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21 as builder
+FROM eclipse-temurin:25 as builder
 WORKDIR server
 
 COPY fabric-server.jar fabric-server.jar
